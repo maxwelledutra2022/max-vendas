@@ -232,6 +232,38 @@
     cursor: pointer; margin-top: 3px; color: white; border: 1px solid rgba(255,255,255,0.3);
   }
   #vendedor-badge:active { background: rgba(255,255,255,0.3); }
+
+  /* ADMIN */
+  #admin-btn {
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+    color: white; border-radius: 20px; padding: 3px 10px;
+    font-size: 0.72rem; font-weight: 700; cursor: pointer; margin-top: 3px;
+  }
+  #admin-btn.ativo { background: #f59e0b; border-color: #f59e0b; color: #1e293b; }
+  #admin-btn:active { opacity: 0.8; }
+
+  /* MODAL ADMIN */
+  #admin-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    z-index: 500; align-items: center; justify-content: center; padding: 20px;
+  }
+  #admin-modal.open { display: flex; }
+  .admin-sheet {
+    background: var(--card); border-radius: 20px;
+    padding: 28px 24px; width: 100%; max-width: 360px; text-align: center;
+  }
+  .admin-sheet h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; }
+  .admin-sheet p { font-size: 0.82rem; color: var(--muted); margin-bottom: 16px; }
+
+  /* CARD ADMIN RESUMO POR VENDEDOR */
+  .admin-vend-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .admin-vend-row:last-child { border-bottom: none; }
+  .admin-vend-nome { font-weight: 700; font-size: 0.95rem; }
+  .admin-vend-meta { font-size: 0.75rem; color: var(--muted); }
+  .admin-vend-total { font-weight: 800; color: var(--success); font-size: 1rem; }
 </style>
 </head>
 <body>
@@ -243,7 +275,17 @@
     <div id="sync-status">☁️ Sincronizando...</div>
     <div id="vendedor-badge" onclick="abrirModal('vendedor-modal');renderVendedoresModal()">👤 <span id="vendedor-nome-badge">Selecionar</span></div>
   </div>
-  <div style="font-size:1.5rem;" id="topTotal"></div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+    <div style="font-size:1.5rem;" id="topTotal"></div>
+    <button id="admin-btn" onclick="abrirAdmin()">🔒 Admin</button>
+  </div>
+</div>
+
+<!-- MODAL ADMIN -->
+<div id="admin-modal" onclick="if(event.target===this)fecharModal('admin-modal')">
+  <div class="admin-sheet" id="admin-modal-content">
+    <!-- preenchido dinamicamente -->
+  </div>
 </div>
 
 <!-- MODAL SELEÇÃO VENDEDOR -->
@@ -601,6 +643,7 @@ let vendas = load('vendas_app', []);
 let produtos = load('produtos_app', []);
 let vendedores = load('vendedores_app', []);
 let vendedorAtual = load('vendedor_atual', null); // { id, nome }
+let modoAdmin = false; // session-only, não persiste
 
 // Carrega dados da nuvem ao iniciar
 async function inicializarDados() {
@@ -680,9 +723,102 @@ function updateTop() {
 }
 
 // ---- DASHBOARD ----
+// ---- ADMIN ----
+function abrirAdmin() {
+  const content = document.getElementById('admin-modal-content');
+  if (modoAdmin) {
+    // Já está em modo admin — mostrar painel ou sair
+    content.innerHTML = `
+      <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🔓</div>
+      <h3>Modo Admin Ativo</h3>
+      <p style="margin-bottom:16px;">Você está visualizando todas as vendas.</p>
+      <button onclick="sairAdmin()" style="width:100%;padding:14px;background:var(--danger);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;margin-bottom:10px;">🔒 Sair do Admin</button>
+      <button onclick="fecharModal('admin-modal')" style="width:100%;padding:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:0.9rem;cursor:pointer;">Fechar</button>
+    `;
+  } else {
+    content.innerHTML = `
+      <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🔒</div>
+      <h3>Acesso Admin</h3>
+      <p style="margin-bottom:16px;">Digite a senha para ver todas as vendas.</p>
+      <input type="password" id="admin-senha-input" placeholder="Senha" autocomplete="off"
+        style="width:100%;margin-bottom:12px;padding:14px;border:1.5px solid var(--border);border-radius:12px;font-size:1rem;text-align:center;"
+        onkeydown="if(event.key==='Enter')confirmarAdmin()">
+      <button onclick="confirmarAdmin()" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;margin-bottom:10px;">Entrar</button>
+      <button onclick="fecharModal('admin-modal')" style="width:100%;padding:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:0.9rem;cursor:pointer;">Cancelar</button>
+    `;
+  }
+  document.getElementById('admin-modal').classList.add('open');
+  setTimeout(() => { const inp = document.getElementById('admin-senha-input'); if(inp) inp.focus(); }, 100);
+}
+
+function confirmarAdmin() {
+  const inp = document.getElementById('admin-senha-input');
+  if (!inp) return;
+  if (inp.value === 'max2026') {
+    modoAdmin = true;
+    fecharModal('admin-modal');
+    document.getElementById('admin-btn').classList.add('ativo');
+    document.getElementById('admin-btn').textContent = '🔓 Admin';
+    renderDashboard();
+    if (document.getElementById('screen-historico').classList.contains('active')) {
+      renderHistorico(histFiltro);
+    }
+    toast('✅ Modo admin ativado');
+  } else {
+    inp.style.border = '1.5px solid var(--danger)';
+    inp.value = '';
+    inp.placeholder = 'Senha incorreta!';
+    setTimeout(() => { inp.style.border = '1.5px solid var(--border)'; inp.placeholder = 'Senha'; }, 1500);
+  }
+}
+
+function sairAdmin() {
+  modoAdmin = false;
+  fecharModal('admin-modal');
+  document.getElementById('admin-btn').classList.remove('ativo');
+  document.getElementById('admin-btn').textContent = '🔒 Admin';
+  renderDashboard();
+  if (document.getElementById('screen-historico').classList.contains('active')) {
+    renderHistorico(histFiltro);
+  }
+  toast('🔒 Saiu do modo admin');
+}
+
+function renderAdminResumo(vendaList) {
+  // Agrupa por vendedor
+  const mapa = {};
+  vendaList.forEach(v => {
+    const nome = v.vendedor || '(sem vendedor)';
+    if (!mapa[nome]) mapa[nome] = { total: 0, qtd: 0 };
+    mapa[nome].total += v.total;
+    mapa[nome].qtd += 1;
+  });
+  const rows = Object.entries(mapa).sort((a,b) => b[1].total - a[1].total);
+  if (!rows.length) return '';
+  return `
+    <div class="card" style="margin-top:14px;">
+      <div style="font-size:0.75rem;font-weight:800;color:var(--muted);margin-bottom:12px;letter-spacing:.05em;">📊 RESUMO POR VENDEDOR</div>
+      ${rows.map(([nome, d]) => `
+        <div class="admin-vend-row">
+          <div>
+            <div class="admin-vend-nome">👤 ${esc(nome)}</div>
+            <div class="admin-vend-meta">${d.qtd} venda${d.qtd !== 1 ? 's' : ''}</div>
+          </div>
+          <div class="admin-vend-total">${fmt(d.total)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 function renderDashboard() {
   updateTop();
-  const hoje = vendas.filter(v => v.data === today());
+  // Admin vê tudo; vendedor vê só as suas
+  const vendasFiltradas = modoAdmin
+    ? vendas
+    : (vendedorAtual ? vendas.filter(v => v.vendedor === vendedorAtual.nome) : vendas);
+
+  const hoje = vendasFiltradas.filter(v => v.data === today());
   const totalHoje = hoje.reduce((s, v) => s + v.total, 0);
   const itensHoje = hoje.reduce((s, v) => s + Number(v.qtd), 0);
   const ticket = hoje.length ? (totalHoje / hoje.length) : 0;
@@ -702,11 +838,24 @@ function renderDashboard() {
       <div class="venda-item">
         <div>
           <div class="venda-nome">${esc(v.nome)}</div>
-          <div class="venda-meta">${v.qtd}x · ${v.pgto} · ${v.hora}</div>
+          <div class="venda-meta">${v.qtd}x · ${v.pgto} · ${v.hora}${modoAdmin && v.vendedor ? ' · 👤 ' + esc(v.vendedor) : ''}</div>
         </div>
         <div class="venda-valor">${fmt(v.total)}</div>
       </div>
     `).join('');
+  }
+
+  // painel admin — resumo por vendedor (após estoque crítico)
+  const adminEl = document.getElementById('dash-admin-resumo');
+  if (adminEl) adminEl.remove();
+  if (modoAdmin) {
+    const criticoEl = document.getElementById('dash-critico');
+    if (criticoEl && criticoEl.parentNode) {
+      const div = document.createElement('div');
+      div.id = 'dash-admin-resumo';
+      div.innerHTML = renderAdminResumo(hoje);
+      criticoEl.parentNode.insertBefore(div, criticoEl.nextSibling);
+    }
   }
 
   // estoque crítico (≤5)
@@ -822,7 +971,12 @@ function filtrarHist(filtro, el) {
 
 function renderHistorico(filtro) {
   const agora = new Date();
-  let lista = vendas.filter(v => {
+  // Admin vê tudo; vendedor vê só as suas
+  const vendasBase = modoAdmin
+    ? vendas
+    : (vendedorAtual ? vendas.filter(v => v.vendedor === vendedorAtual.nome) : vendas);
+
+  let lista = vendasBase.filter(v => {
     if (filtro === 'hoje') return v.data === today();
     if (filtro === 'semana') {
       const d = new Date(v.data + 'T12:00:00');
