@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Controle de Vendas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 80px;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    background: var(--primary);
+    color: white;
+    padding: 16px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(37,99,235,0.3);
+  }
+  .topbar h1 { font-size: 1.1rem; font-weight: 700; }
+  .topbar .date { font-size: 0.75rem; opacity: 0.85; margin-top: 2px; }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    z-index: 100;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+  }
+  .nav-btn {
+    flex: 1; padding: 10px 4px 8px;
+    background: none; border: none;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 3px; cursor: pointer; color: var(--muted);
+    font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.03em; transition: color 0.15s;
+  }
+  .nav-btn svg { width: 22px; height: 22px; }
+  .nav-btn.active { color: var(--primary); }
+
+  /* SCREENS */
+  .screen { display: none; padding: 16px; }
+  .screen.active { display: block; }
+
+  /* CARDS */
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+    margin-bottom: 12px;
+  }
+  .card-title { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+
+  /* STAT ROW */
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .stat-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 14px 10px;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .stat-value { font-size: 1.3rem; font-weight: 800; color: var(--primary); line-height: 1; }
+  .stat-label { font-size: 0.65rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
+
+  /* FORM */
+  label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; margin-top: 12px; }
+  input, select {
+    width: 100%; padding: 11px 13px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 1rem; color: var(--text); background: var(--bg);
+    outline: none; transition: border-color 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--primary); background: white; }
+
+  .btn {
+    display: block; width: 100%; padding: 13px;
+    border: none; border-radius: 11px; font-size: 1rem; font-weight: 700;
+    cursor: pointer; margin-top: 16px; transition: transform 0.1s, opacity 0.1s;
+    letter-spacing: 0.02em;
+  }
+  .btn:active { transform: scale(0.98); opacity: 0.9; }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-success { background: var(--success); color: white; }
+  .btn-danger { background: var(--danger); color: white; font-size: 0.85rem; padding: 10px; margin-top: 8px; }
+  .btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
+
+  /* VENDA ITEM */
+  .venda-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .venda-item:last-child { border-bottom: none; }
+  .venda-nome { font-weight: 600; font-size: 0.95rem; }
+  .venda-meta { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .venda-valor { font-weight: 800; color: var(--success); font-size: 1rem; white-space: nowrap; }
+  .venda-delete {
+    background: #fef2f2; border: none; color: var(--danger);
+    padding: 6px 10px; cursor: pointer; font-size: 1rem;
+    border-radius: 8px; font-weight: 700; min-width: 36px;
+  }
+  .venda-delete:active { background: #fee2e2; }
+
+  /* PRODUTO ITEM */
+  .produto-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 0; border-bottom: 1px solid var(--border);
+  }
+  .produto-item:last-child { border-bottom: none; }
+  .produto-nome { font-weight: 600; font-size: 0.9rem; }
+  .produto-preco { color: var(--primary); font-weight: 700; }
+  .produto-estoque { font-size: 0.75rem; color: var(--muted); }
+  .badge {
+    display: inline-block; padding: 2px 7px; border-radius: 20px;
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  }
+  .badge-low { background: #fef2f2; color: var(--danger); }
+  .badge-ok { background: #f0fdf4; color: var(--success); }
+
+  /* EMPTY STATE */
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .empty p { font-size: 0.9rem; }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-size: 0.75rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.06em; font-weight: 700; margin-bottom: 8px; padding: 0 2px;
+  }
+
+  /* TOTAL BADGE */
+  .total-big { font-size: 2rem; font-weight: 900; color: var(--primary); }
+
+  /* FILTER ROW */
+  .filter-row { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .filter-chip {
+    padding: 5px 12px; border-radius: 20px; border: 1.5px solid var(--border);
+    background: var(--card); font-size: 0.75rem; font-weight: 600; cursor: pointer;
+    color: var(--muted); transition: all 0.15s;
+  }
+  .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  /* MODAIS */
+  #pdf-modal, #wpp-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    z-index: 300; align-items: flex-end; justify-content: center;
+  }
+  #pdf-modal.open, #wpp-modal.open { display: flex; }
+  .pdf-sheet {
+    background: var(--card); border-radius: 20px 20px 0 0;
+    padding: 24px 20px 36px; width: 100%; max-width: 480px;
+    text-align: center;
+  }
+  .pdf-sheet h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; }
+  .pdf-sheet p { font-size: .82rem; color: var(--muted); margin-bottom: 18px; }
+  .pdf-link {
+    display: block; background: var(--primary); color: #fff;
+    padding: 13px; border-radius: 11px; font-weight: 800;
+    font-size: 1rem; text-decoration: none; margin-bottom: 10px;
+  }
+  .pdf-cancel {
+    background: none; border: none; color: var(--muted);
+    font-size: .9rem; font-weight: 600; cursor: pointer; padding: 8px;
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: #1e293b; color: white; padding: 10px 20px; border-radius: 25px;
+    font-size: 0.85rem; font-weight: 600; opacity: 0;
+    transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 200;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="topbar h1" style="font-size:1.1rem;font-weight:700;">🛒 Controle de Vendas</div>
+    <div class="date" id="topDate"></div>
+  </div>
+  <div style="font-size:1.5rem;" id="topTotal"></div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div class="screen active" id="screen-dashboard">
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-vendas">0</div>
+      <div class="stat-label">Vendas Hoje</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-itens">0</div>
+      <div class="stat-label">Itens</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-ticket">R$0</div>
+      <div class="stat-label">Ticket Méd.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Faturamento de Hoje</div>
+    <div class="total-big" id="dash-total">R$ 0,00</div>
+  </div>
+
+  <div class="section-title">Últimas Vendas</div>
+  <div class="card" id="dash-recentes">
+    <div class="empty"><div class="empty-icon">📋</div><p>Nenhuma venda hoje.</p></div>
+  </div>
+
+  <div class="section-title" style="margin-top:4px;">Estoque Crítico</div>
+  <div class="card" id="dash-critico">
+    <div class="empty"><div class="empty-icon">✅</div><p>Estoque OK.</p></div>
+  </div>
+</div>
+
+<!-- ===== NOVA VENDA ===== -->
+<div class="screen" id="screen-venda">
+  <div class="card">
+    <div style="font-weight:800;font-size:1.05rem;margin-bottom:4px;">Nova Venda</div>
+    <div style="font-size:0.8rem;color:var(--muted);">Registre uma venda rapidamente</div>
+  </div>
+
+  <div class="card">
+    <!-- CÂMERA / SCANNER -->
+    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="processarFoto(this)">
+
+    <button type="button" onclick="document.getElementById('camera-input').click()"
+      style="width:100%;padding:14px;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      📷 Tirar Foto / Escanear Código
+    </button>
+
+    <div id="scan-resultado" style="display:none;padding:10px 12px;border-radius:10px;font-size:0.85rem;margin-bottom:4px;"></div>
+
+    <label>Produto Cadastrado</label>
+    <select id="v-produto">
+      <option value="">— selecione ou digite abaixo —</option>
+    </select>
+
+    <label>Ou nome livre</label>
+    <input type="text" id="v-nome" placeholder="Nome do produto" autocomplete="off">
+
+    <label>Quantidade</label>
+    <input type="number" id="v-qtd" value="1" min="1" inputmode="numeric">
+
+    <label>Preço Unitário (R$)</label>
+    <input type="number" id="v-preco" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
+
+    <label>Forma de Pagamento</label>
+    <select id="v-pgto">
+      <option value="Dinheiro">💵 Dinheiro</option>
+      <option value="PIX">📱 PIX</option>
+      <option value="Débito">💳 Débito</option>
+      <option value="Crédito">💳 Crédito</option>
+    </select>
+
+    <div id="v-preview" style="display:none;margin-top:12px;padding:12px;background:#f0fdf4;border-radius:10px;text-align:center;">
+      <div style="font-size:0.8rem;color:var(--muted);">Total da venda</div>
+      <div style="font-size:1.6rem;font-weight:900;color:var(--success);" id="v-preview-valor">R$ 0,00</div>
+    </div>
+
+    <button class="btn btn-success" onclick="registrarVenda()">✅ Registrar Venda</button>
+  </div>
+</div>
+
+<!-- ===== HISTÓRICO ===== -->
+<div class="screen" id="screen-historico">
+  <div class="filter-row">
+    <span class="filter-chip active" onclick="filtrarHist('hoje',this)">Hoje</span>
+    <span class="filter-chip" onclick="filtrarHist('semana',this)">Semana</span>
+    <span class="filter-chip" onclick="filtrarHist('tudo',this)">Tudo</span>
+  </div>
+
+  <div class="card" style="margin-bottom:8px;" id="hist-resumo">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div class="card-title">Total do Período</div>
+        <div style="font-size:1.4rem;font-weight:900;color:var(--success);" id="hist-total">R$ 0,00</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="card-title">Nº de Vendas</div>
+        <div style="font-size:1.4rem;font-weight:900;color:var(--primary);" id="hist-count">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Registros</div>
+  <div class="card" id="hist-lista">
+    <div class="empty"><div class="empty-icon">📋</div><p>Sem vendas no período.</p></div>
+  </div>
+  <button class="btn" onclick="enviarWhatsApp()" style="margin-top:4px;background:#25D366;color:#fff;font-size:1rem;padding:14px;">
+    📲 Enviar relatório pelo WhatsApp
+  </button>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+    <button class="btn btn-primary" onclick="gerarPDF()" style="margin-top:0;">📄 Exportar PDF</button>
+    <button class="btn" onclick="compartilharRelatorio()" style="margin-top:0;background:#6366f1;color:#fff;">↗️ Compartilhar</button>
+  </div>
+  <button class="btn btn-danger" onclick="excluirPeriodo()" style="margin-top:8px;">🗑️ Excluir todas do período</button>
+</div>
+
+<!-- PDF MODAL -->
+<div id="pdf-modal">
+  <div class="pdf-sheet">
+    <div style="font-size:2rem;margin-bottom:8px;">📄</div>
+    <h3>PDF Gerado!</h3>
+    <p>Toque no botão abaixo para abrir. No celular, use "Compartilhar" para salvar.</p>
+    <a id="pdf-link" class="pdf-link" target="_blank">📥 Abrir Relatório PDF</a>
+    <button class="pdf-cancel" onclick="fecharModal('pdf-modal')">Fechar</button>
+  </div>
+</div>
+
+<!-- WHATSAPP MODAL -->
+<div id="wpp-modal">
+  <div class="pdf-sheet">
+    <div style="font-size:2rem;margin-bottom:8px;">💬</div>
+    <h3>Enviar pelo WhatsApp</h3>
+    <p>Toque em "Abrir WhatsApp" para enviar o relatório, ou copie o texto.</p>
+    <a id="wpp-link" class="pdf-link" style="background:#25D366;" target="_blank">📲 Abrir WhatsApp</a>
+    <button class="btn" id="wpp-copy-btn" onclick="copiarTextoWpp()"
+      style="margin-top:8px;background:var(--bg);color:var(--text);border:1.5px solid var(--border);font-size:.9rem;">
+      📋 Copiar texto
+    </button>
+    <button class="pdf-cancel" onclick="fecharModal('wpp-modal')">Fechar</button>
+  </div>
+</div>
+
+<!-- ===== BACKUP ===== -->
+<div class="screen" id="screen-backup">
+  <div class="card">
+    <div style="font-weight:800;font-size:1.05rem;margin-bottom:4px;">💾 Backup &amp; Sincronização</div>
+    <div style="font-size:0.8rem;color:var(--muted);">Backup local e envio para Google Sheets</div>
+  </div>
+
+  <!-- GOOGLE DRIVE -->
+  <div class="card" style="border:2px solid #4285f4;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-size:1.6rem;">☁️</span>
+      <div>
+        <div style="font-weight:800;font-size:0.95rem;">Google Drive — Backup Automático</div>
+        <div id="sheets-status-label" style="font-size:0.75rem;color:var(--muted);">Não configurado</div>
+      </div>
+      <span id="sheets-dot" style="margin-left:auto;width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0;"></span>
+    </div>
+
+    <div id="sheets-config-area">
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:10px;">
+        Cole a URL do script Google abaixo. O backup vai direto para a pasta <strong>"Vendas - Backup"</strong> no seu Drive.
+      </p>
+      <input type="url" id="sheets-url" placeholder="https://script.google.com/macros/s/..." style="font-size:0.8rem;">
+      <button class="btn btn-primary" onclick="salvarSheetsUrl()" style="margin-top:8px;padding:11px;">💾 Salvar e conectar</button>
+    </div>
+
+    <div id="sheets-ativo" style="display:none;">
+      <div style="background:#f0fdf4;border-radius:8px;padding:10px;margin-bottom:10px;font-size:0.82rem;color:#16a34a;font-weight:600;">
+        ✅ Conectado ao Google Drive
+      </div>
+      <button class="btn" onclick="enviarBackupDrive()" style="margin-top:0;background:#4285f4;color:#fff;padding:12px;font-size:0.95rem;font-weight:800;">
+        ☁️ Enviar backup para o Drive agora
+      </button>
+      <div id="drive-ultimo" style="font-size:0.75rem;color:var(--muted);margin-top:6px;text-align:center;"></div>
+      <button class="btn btn-danger" onclick="desconectarSheets()" style="font-size:0.8rem;padding:8px;margin-top:8px;">Desconectar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Exportar / Compartilhar</div>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:10px;">Baixe o arquivo de backup ou envie diretamente pelo WhatsApp para o dono da loja.</p>
+    <button class="btn" onclick="compartilharWhatsApp()" style="margin-top:0;background:#25D366;color:#fff;font-size:0.95rem;">
+      📲 Compartilhar backup pelo WhatsApp
+    </button>
+    <button class="btn btn-primary" onclick="exportarDados()" style="margin-top:8px;font-size:0.9rem;">
+      📥 Baixar arquivo .json
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Importar (mesclar vendas)</div>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:10px;">
+      Recebeu o backup de uma vendedora? Importe aqui — as vendas dela são <strong>adicionadas</strong> às suas, sem apagar nada.
+    </p>
+    <label for="import-file" style="display:block;padding:13px;background:#f0fdf4;border:2px dashed #86efac;border-radius:11px;text-align:center;cursor:pointer;font-weight:700;color:var(--success);">
+      📂 Importar e mesclar backup
+    </label>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importarMesclar(this)">
+
+    <div style="margin-top:8px;border-top:1px dashed var(--border);padding-top:8px;">
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:6px;">⚠️ Substituir tudo (apaga dados atuais):</p>
+      <label for="import-file-replace" style="display:block;padding:10px;background:var(--bg);border:1.5px dashed var(--border);border-radius:10px;text-align:center;cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--muted);">
+        🗑️ Restaurar backup completo
+      </label>
+      <input type="file" id="import-file-replace" accept=".json" style="display:none" onchange="importarDados(this)">
+    </div>
+  </div>
+
+  <div class="card" id="backup-status" style="display:none;border:2px solid var(--success);background:#f0fdf4;">
+    <div id="backup-status-text" style="color:var(--success);font-weight:700;"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Situação atual</div>
+    <div id="backup-info" style="font-size:0.9rem;line-height:1.8;"></div>
+  </div>
+</div>
+
+<!-- ===== PRODUTOS ===== -->
+<div class="screen" id="screen-produtos">
+  <div class="card">
+    <div style="font-weight:800;font-size:1.05rem;margin-bottom:4px;">Cadastro de Produtos</div>
+    <div style="font-size:0.8rem;color:var(--muted);">Gerencie seu catálogo e estoque</div>
+  </div>
+
+  <div class="card">
+    <label>Nome do Produto</label>
+    <input type="text" id="p-nome" placeholder="Ex: Camiseta P" autocomplete="off">
+    <label>Preço de Venda (R$)</label>
+    <input type="number" id="p-preco" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
+    <label>Estoque Inicial</label>
+    <input type="number" id="p-estoque" value="0" min="0" inputmode="numeric">
+    <label>Código de Barras (opcional)</label>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="p-codigo" placeholder="Ex: 7891234567890" inputmode="numeric" style="flex:1;">
+      <button type="button" onclick="escanearCadastroProduto()"
+        style="padding:11px 13px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:1.1rem;cursor:pointer;">
+        📷
+      </button>
+    </div>
+    <input type="file" id="camera-produto" accept="image/*" capture="environment" style="display:none" onchange="processarCodigoProduto(this)">
+    <button class="btn btn-primary" onclick="adicionarProduto()">➕ Adicionar Produto</button>
+  </div>
+
+  <div class="section-title">Catálogo</div>
+  <div class="card" id="prod-lista">
+    <div class="empty"><div class="empty-icon">📦</div><p>Nenhum produto cadastrado.</p></div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="goScreen('dashboard',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Início
+  </button>
+  <button class="nav-btn" onclick="goScreen('venda',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+    Venda
+  </button>
+  <button class="nav-btn" onclick="goScreen('historico',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+    Histórico
+  </button>
+  <button class="nav-btn" onclick="goScreen('produtos',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+    Produtos
+  </button>
+  <button class="nav-btn" onclick="goScreen('backup',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Backup
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---- STORAGE ----
+function load(k, def) {
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; }
+}
+function save(k, v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+}
+
+let vendas = load('vendas_app', []);
+let produtos = load('produtos_app', []);
+
+// ---- UTILS ----
+function fmt(v) {
+  return 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function parseValor(s) { return parseFloat(String(s).replace(',', '.')) || 0; }
+
+// ---- NAVIGATION ----
+function goScreen(name, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'historico') { histFiltro = 'hoje'; renderHistorico('hoje'); }
+  if (name === 'produtos') renderProdutos();
+  if (name === 'backup') { renderBackupInfo(); initSheets(); }
+  if (name === 'venda') renderSelectProdutos();
+}
+
+// ---- TOPBAR ----
+function updateTop() {
+  const d = new Date();
+  const dias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  document.getElementById('topDate').textContent =
+    dias[d.getDay()] + ', ' + d.toLocaleDateString('pt-BR');
+
+  const totalHoje = vendas.filter(v => v.data === today()).reduce((s, v) => s + v.total, 0);
+  document.getElementById('topTotal').textContent = fmt(totalHoje);
+}
+
+// ---- DASHBOARD ----
+function renderDashboard() {
+  updateTop();
+  const hoje = vendas.filter(v => v.data === today());
+  const totalHoje = hoje.reduce((s, v) => s + v.total, 0);
+  const itensHoje = hoje.reduce((s, v) => s + Number(v.qtd), 0);
+  const ticket = hoje.length ? (totalHoje / hoje.length) : 0;
+
+  document.getElementById('stat-vendas').textContent = hoje.length;
+  document.getElementById('stat-itens').textContent = itensHoje;
+  document.getElementById('stat-ticket').textContent = 'R$' + ticket.toFixed(0);
+  document.getElementById('dash-total').textContent = fmt(totalHoje);
+
+  // recentes
+  const rec = document.getElementById('dash-recentes');
+  if (!hoje.length) {
+    rec.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>Nenhuma venda hoje.</p></div>';
+  } else {
+    const ult = [...hoje].reverse().slice(0, 5);
+    rec.innerHTML = ult.map(v => `
+      <div class="venda-item">
+        <div>
+          <div class="venda-nome">${esc(v.nome)}</div>
+          <div class="venda-meta">${v.qtd}x · ${v.pgto} · ${v.hora}</div>
+        </div>
+        <div class="venda-valor">${fmt(v.total)}</div>
+      </div>
+    `).join('');
+  }
+
+  // estoque crítico (≤5)
+  const crit = produtos.filter(p => p.estoque <= 5);
+  const critEl = document.getElementById('dash-critico');
+  if (!crit.length) {
+    critEl.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><p>Estoque OK.</p></div>';
+  } else {
+    critEl.innerHTML = crit.map(p => `
+      <div class="produto-item">
+        <div>
+          <div class="produto-nome">${esc(p.nome)}</div>
+          <div class="produto-preco">${fmt(p.preco)}</div>
+        </div>
+        <span class="badge ${p.estoque === 0 ? 'badge-low' : 'badge-low'}">
+          ${p.estoque === 0 ? 'Sem estoque' : p.estoque + ' un.'}
+        </span>
+      </div>
+    `).join('');
+  }
+}
+
+// ---- NOVA VENDA ----
+function renderSelectProdutos() {
+  const sel = document.getElementById('v-produto');
+  sel.innerHTML = '<option value="">— selecione —</option>';
+  produtos.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.nome + ' · ' + fmt(p.preco);
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById('v-produto').addEventListener('change', function() {
+  const p = produtos.find(x => x.id === this.value);
+  if (p) {
+    document.getElementById('v-nome').value = p.nome;
+    document.getElementById('v-preco').value = p.preco;
+    calcPreview();
+  }
+});
+
+['v-qtd','v-preco'].forEach(id => {
+  document.getElementById(id).addEventListener('input', calcPreview);
+});
+
+function calcPreview() {
+  const qtd = parseValor(document.getElementById('v-qtd').value);
+  const preco = parseValor(document.getElementById('v-preco').value);
+  const total = qtd * preco;
+  const prev = document.getElementById('v-preview');
+  if (total > 0) {
+    prev.style.display = 'block';
+    document.getElementById('v-preview-valor').textContent = fmt(total);
+  } else {
+    prev.style.display = 'none';
+  }
+}
+
+function registrarVenda() {
+  const nomeInput = document.getElementById('v-nome').value.trim();
+  const selVal = document.getElementById('v-produto').value;
+  const nome = nomeInput || (selVal ? (produtos.find(p=>p.id===selVal)||{nome:''}).nome : '');
+  const qtd = parseValor(document.getElementById('v-qtd').value);
+  const preco = parseValor(document.getElementById('v-preco').value);
+  const pgto = document.getElementById('v-pgto').value;
+
+  if (!nome) { toast('⚠️ Informe o produto'); return; }
+  if (qtd <= 0) { toast('⚠️ Quantidade inválida'); return; }
+  if (preco <= 0) { toast('⚠️ Informe o preço'); return; }
+
+  const venda = {
+    id: uid(), nome, qtd, preco, total: qtd * preco,
+    pgto, data: today(),
+    hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})
+  };
+  vendas.push(venda);
+  save('vendas_app', vendas);
+
+  // desconta estoque se produto selecionado
+  if (selVal) {
+    const idx = produtos.findIndex(p => p.id === selVal);
+    if (idx >= 0) {
+      produtos[idx].estoque = Math.max(0, (produtos[idx].estoque || 0) - qtd);
+      save('produtos_app', produtos);
+    }
+  }
+
+  // reset
+  document.getElementById('v-nome').value = '';
+  document.getElementById('v-produto').value = '';
+  document.getElementById('v-qtd').value = '1';
+  document.getElementById('v-preco').value = '';
+  document.getElementById('v-preview').style.display = 'none';
+
+  toast('✅ Venda de ' + fmt(venda.total) + ' registrada!');
+  updateTop();
+  enviarVendaParaSheets(venda); // envia para Sheets se configurado
+}
+
+// ---- HISTÓRICO ----
+let histFiltro = 'hoje';
+function filtrarHist(filtro, el) {
+  histFiltro = filtro;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderHistorico(filtro);
+}
+
+function renderHistorico(filtro) {
+  const agora = new Date();
+  let lista = vendas.filter(v => {
+    if (filtro === 'hoje') return v.data === today();
+    if (filtro === 'semana') {
+      const d = new Date(v.data + 'T12:00:00');
+      const diff = (agora - d) / 86400000;
+      return diff <= 7;
+    }
+    return true;
+  });
+  lista = [...lista].reverse();
+
+  const total = lista.reduce((s, v) => s + v.total, 0);
+  document.getElementById('hist-total').textContent = fmt(total);
+  document.getElementById('hist-count').textContent = lista.length;
+
+  const el = document.getElementById('hist-lista');
+  if (!lista.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>Sem vendas no período.</p></div>';
+    return;
+  }
+  el.innerHTML = lista.map(v => `
+    <div class="venda-item">
+      <div style="flex:1;min-width:0;">
+        <div class="venda-nome">${esc(v.nome)}</div>
+        <div class="venda-meta">${v.qtd}x ${fmt(v.preco)} · ${v.pgto} · ${v.data.slice(5).replace('-','/')} ${v.hora}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div class="venda-valor">${fmt(v.total)}</div>
+        <button class="venda-delete" onclick="deletarVenda('${v.id}')">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deletarVenda(id) {
+  vendas = vendas.filter(v => v.id !== id);
+  save('vendas_app', vendas);
+  renderHistorico(histFiltro);
+  updateTop();
+  toast('🗑️ Venda removida');
+}
+
+function excluirPeriodo() {
+  const agora = new Date();
+  const ids = vendas.filter(v => {
+    if (histFiltro === 'hoje') return v.data === today();
+    if (histFiltro === 'semana') return (agora - new Date(v.data + 'T12:00')) / 86400000 <= 7;
+    return true;
+  }).map(v => v.id);
+  if (!ids.length) { toast('⚠️ Nenhuma venda no período'); return; }
+  const label = histFiltro === 'hoje' ? 'de hoje' : histFiltro === 'semana' ? 'da semana' : 'de todo o histórico';
+  if (!confirm('Excluir ' + ids.length + ' venda(s) ' + label + '?')) return;
+  vendas = vendas.filter(v => !ids.includes(v.id));
+  save('vendas_app', vendas);
+  renderHistorico(histFiltro);
+  updateTop();
+  toast('🗑️ ' + ids.length + ' venda(s) excluída(s)');
+}
+
+// ---- PRODUTOS ----
+function adicionarProduto() {
+  const nome = document.getElementById('p-nome').value.trim();
+  const preco = parseValor(document.getElementById('p-preco').value);
+  const estoque = parseInt(document.getElementById('p-estoque').value) || 0;
+  const codigo = document.getElementById('p-codigo').value.trim();
+
+  if (!nome) { toast('⚠️ Informe o nome'); return; }
+  if (preco <= 0) { toast('⚠️ Informe o preço'); return; }
+
+  if (codigo && produtos.find(p => p.codigo === codigo)) {
+    toast('⚠️ Código já cadastrado em outro produto'); return;
+  }
+
+  produtos.push({ id: uid(), nome, preco, estoque, codigo: codigo || '' });
+  save('produtos_app', produtos);
+
+  document.getElementById('p-nome').value = '';
+  document.getElementById('p-preco').value = '';
+  document.getElementById('p-estoque').value = '0';
+  document.getElementById('p-codigo').value = '';
+
+  renderProdutos();
+  toast('📦 Produto cadastrado!');
+}
+
+function deletarProduto(id) {
+  produtos = produtos.filter(p => p.id !== id);
+  save('produtos_app', produtos);
+  renderProdutos();
+  toast('🗑️ Produto removido');
+}
+
+function renderProdutos() {
+  const el = document.getElementById('prod-lista');
+  if (!produtos.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><p>Nenhum produto cadastrado.</p></div>';
+    return;
+  }
+  el.innerHTML = [...produtos].reverse().map(p => `
+    <div class="produto-item">
+      <div>
+        <div class="produto-nome">${esc(p.nome)}</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:3px;">
+          <span class="produto-preco">${fmt(p.preco)}</span>
+          <span class="badge ${p.estoque <= 5 ? 'badge-low' : 'badge-ok'}">${p.estoque} un.</span>
+        </div>
+        ${p.codigo ? '<div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">🔖 ' + esc(p.codigo) + '</div>' : ''}
+      </div>
+      <button class="venda-delete" onclick="deletarProduto('${p.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+let _wppTexto = '';
+
+function montarMensagemVendas() {
+  const filtroAtual = histFiltro || 'hoje';
+  const agora = new Date();
+  let lista = vendas.filter(v => {
+    if (filtroAtual === 'hoje') return v.data === today();
+    if (filtroAtual === 'semana') return (agora - new Date(v.data + 'T12:00')) / 86400000 <= 7;
+    return true;
+  });
+  lista = [...lista].reverse();
+  return { lista, filtroAtual, agora };
+}
+
+function montarTextoRelatorio() {
+  const { lista, filtroAtual, agora } = montarMensagemVendas();
+  if (!lista.length) return null;
+
+  const total = lista.reduce((s, v) => s + v.total, 0);
+  const periodoLabel = filtroAtual === 'hoje'
+    ? agora.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'2-digit', year:'numeric'})
+    : filtroAtual === 'semana' ? 'Ultimos 7 dias' : 'Todo o periodo';
+
+  const porPgto = {};
+  lista.forEach(v => { porPgto[v.pgto] = (porPgto[v.pgto] || 0) + v.total; });
+  const pgtoLinhas = Object.entries(porPgto).map(([k, v]) => '  - ' + k + ': ' + fmt(v)).join('\n');
+
+  let msg = '*RELATORIO DE VENDAS*\n';
+  msg += '----------------------------\n';
+  msg += 'Periodo: ' + periodoLabel + '\n';
+  msg += '----------------------------\n\n';
+  lista.forEach((v, i) => {
+    msg += (i + 1) + '. *' + v.nome + '*\n';
+    msg += '   ' + v.qtd + 'x ' + fmt(v.preco) + ' = ' + fmt(v.total) + ' (' + v.pgto + ') ' + (v.hora || '') + '\n';
+  });
+  msg += '\n----------------------------\n';
+  msg += lista.length + ' venda' + (lista.length > 1 ? 's' : '') + '\n\n';
+  msg += '*Por pagamento:*\n' + pgtoLinhas + '\n\n';
+  msg += '*TOTAL: ' + fmt(total) + '*\n';
+  msg += '----------------------------\n';
+  msg += '_App de Vendas_';
+  return msg;
+}
+
+function enviarWhatsApp() {
+  const msg = montarTextoRelatorio();
+  if (!msg) { toast('⚠️ Nenhuma venda no período'); return; }
+  _wppTexto = msg;
+
+  // Tenta abrir o WhatsApp diretamente
+  const url = 'https://wa.me/?text=' + encodeURIComponent(msg);
+  window.location.href = url;
+}
+
+async function compartilharRelatorio() {
+  const msg = montarTextoRelatorio();
+  if (!msg) { toast('⚠️ Nenhuma venda no período'); return; }
+  _wppTexto = msg;
+
+  // Web Share API — abre menu nativo do celular
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Relatório de Vendas', text: msg });
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return; // usuário cancelou
+    }
+  }
+
+  // Fallback: copia para área de transferência e mostra modal
+  try { await navigator.clipboard.writeText(msg); toast('✅ Texto copiado! Cole no WhatsApp.'); }
+  catch { abrirModal('wpp-modal'); }
+}
+
+function copiarTextoWpp() {
+  navigator.clipboard.writeText(_wppTexto).then(() => {
+    document.getElementById('wpp-copy-btn').textContent = '✅ Copiado!';
+    setTimeout(() => { document.getElementById('wpp-copy-btn').textContent = '📋 Copiar texto'; }, 2000);
+  }).catch(() => { toast('Use o botão WhatsApp para enviar'); });
+}
+
+function abrirModal(id) { document.getElementById(id).classList.add('open'); }
+function fecharModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function gerarPDF() {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    // Fallback: exportar como texto para copiar
+    const { lista, filtroAtual, agora } = montarMensagemVendas();
+    if (!lista.length) { toast('⚠️ Nenhuma venda no período'); return; }
+    const total = lista.reduce((s, v) => s + v.total, 0);
+    let txt = 'RELATORIO DE VENDAS\n';
+    txt += 'Gerado: ' + agora.toLocaleString('pt-BR') + '\n\n';
+    lista.forEach((v, i) => {
+      txt += (i+1) + '. ' + v.nome + ' - ' + v.qtd + 'x ' + fmt(v.preco) + ' = ' + fmt(v.total) + ' (' + v.pgto + ')\n';
+    });
+    txt += '\nTOTAL: ' + fmt(total);
+    _wppTexto = txt;
+    document.getElementById('wpp-link').href = 'https://wa.me/?text=' + encodeURIComponent(txt);
+    document.getElementById('wpp-copy-btn').textContent = '📋 Copiar Relatório';
+    abrirModal('wpp-modal');
+    return;
+  }
+  const { lista, filtroAtual, agora } = montarMensagemVendas();
+  if (!lista.length) { toast('⚠️ Nenhuma venda no período'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+
+  const total = lista.reduce((s, v) => s + v.total, 0);
+  // Sem caracteres especiais para evitar erro de encoding
+  const periodoLabel = filtroAtual === 'hoje' ? 'Hoje' : filtroAtual === 'semana' ? 'Ultimos 7 dias' : 'Todo o periodo';
+  const fmtPt = v => 'R$ ' + Number(v).toFixed(2).replace('.', ',');
+
+  // Header
+  doc.setFillColor(37, 99, 235);
+  doc.rect(0, 0, 210, 32, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18); doc.setFont('helvetica', 'bold');
+  doc.text('Relatorio de Vendas', 15, 14);
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+  doc.text('Periodo: ' + periodoLabel + '   |   Gerado em: ' + agora.toLocaleString('pt-BR'), 15, 23);
+
+  // Resumo
+  doc.setTextColor(30, 41, 59);
+  let y = 42;
+  doc.setFillColor(240, 244, 248);
+  doc.roundedRect(12, y - 6, 186, 18, 3, 3, 'F');
+  doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+  doc.text('Total do Periodo:', 18, y + 3);
+  doc.setTextColor(22, 163, 74);
+  doc.setFontSize(13);
+  doc.text(fmtPt(total), 90, y + 3);
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+  doc.text('No. de vendas: ' + lista.length, 150, y + 3);
+  y += 22;
+
+  // Tabela header
+  doc.setFillColor(37, 99, 235);
+  doc.rect(12, y, 186, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+  doc.text('Produto', 16, y + 5.5);
+  doc.text('Qtd', 90, y + 5.5);
+  doc.text('Preco Unit.', 108, y + 5.5);
+  doc.text('Total', 148, y + 5.5);
+  doc.text('Pagamento', 168, y + 5.5);
+  y += 10;
+
+  // Linhas
+  doc.setFont('helvetica', 'normal');
+  lista.forEach((v, i) => {
+    if (y > 270) { doc.addPage(); y = 20; }
+    doc.setFillColor(i % 2 === 0 ? 248 : 255, i % 2 === 0 ? 250 : 255, i % 2 === 0 ? 252 : 255);
+    doc.rect(12, y - 4, 186, 8, 'F');
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(8.5);
+    // Remove acentos e caracteres especiais para o PDF
+    const limpar = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '?');
+    const nomeCurto = limpar(v.nome.length > 28 ? v.nome.slice(0, 26) + '..' : v.nome);
+    doc.text(nomeCurto, 16, y + 1);
+    doc.text(String(v.qtd), 93, y + 1);
+    doc.text(fmtPt(v.preco), 108, y + 1);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(22, 163, 74);
+    doc.text(fmtPt(v.total), 148, y + 1);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text(limpar(v.pgto), 168, y + 1);
+    doc.setTextColor(30, 41, 59);
+    y += 8;
+  });
+
+  // Linha total final
+  y += 2;
+  doc.setFillColor(37, 99, 235);
+  doc.rect(12, y, 186, 9, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+  doc.text('TOTAL GERAL', 16, y + 6);
+  doc.text(fmtPt(total), 148, y + 6);
+
+  // Rodapé
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text('Controle de Vendas - ' + agora.toLocaleDateString('pt-BR'), 15, 290);
+
+  // Gera data URI e abre modal (funciona no iframe sem createObjectURL)
+  try {
+    const dataUri = doc.output('datauristring');
+    const link = document.getElementById('pdf-link');
+    link.href = dataUri;
+    link.download = 'vendas-' + today() + '.pdf';
+    abrirModal('pdf-modal');
+  } catch(e) {
+    toast('❌ Erro ao gerar PDF: ' + e.message);
+  }
+}
+
+// ---- GOOGLE DRIVE BACKUP ----
+let sheetsUrl = load('sheets_url', '');
+
+function initSheets() {
+  if (sheetsUrl) mostrarSheetsAtivo();
+  else mostrarSheetsConfig();
+}
+
+function mostrarSheetsAtivo() {
+  document.getElementById('sheets-config-area').style.display = 'none';
+  document.getElementById('sheets-ativo').style.display = 'block';
+  document.getElementById('sheets-dot').style.background = '#34a853';
+  document.getElementById('sheets-status-label').textContent = 'Conectado ao Google Drive';
+  document.getElementById('sheets-status-label').style.color = '#16a34a';
+  const ultimo = load('drive_ultimo_envio', '');
+  const el = document.getElementById('drive-ultimo');
+  if (el && ultimo) el.textContent = 'Último envio: ' + ultimo;
+}
+
+function mostrarSheetsConfig() {
+  document.getElementById('sheets-config-area').style.display = 'block';
+  document.getElementById('sheets-ativo').style.display = 'none';
+  document.getElementById('sheets-dot').style.background = '#ccc';
+  document.getElementById('sheets-status-label').textContent = 'Não configurado';
+  document.getElementById('sheets-status-label').style.color = 'var(--muted)';
+}
+
+function salvarSheetsUrl() {
+  const url = document.getElementById('sheets-url').value.trim();
+  if (!url.startsWith('https://script.google.com')) {
+    toast('⚠️ URL inválida. Cole a URL do Google Apps Script.');
+    return;
+  }
+  sheetsUrl = url;
+  save('sheets_url', sheetsUrl);
+  mostrarSheetsAtivo();
+  toast('✅ Conectado! Toque em "Enviar backup" quando quiser.');
+}
+
+function desconectarSheets() {
+  if (!confirm('Desconectar do Google Drive?')) return;
+  sheetsUrl = '';
+  save('sheets_url', '');
+  mostrarSheetsConfig();
+  document.getElementById('sheets-url').value = '';
+  toast('Desconectado');
+}
+
+async function enviarBackupDrive() {
+  if (!sheetsUrl) { toast('⚠️ Configure o Google Drive primeiro'); return; }
+  if (!vendas.length && !produtos.length) { toast('⚠️ Nenhum dado para enviar'); return; }
+
+  const btn = document.querySelector('#sheets-ativo .btn[onclick="enviarBackupDrive()"]');
+  if (btn) { btn.textContent = '⏳ Enviando...'; btn.disabled = true; }
+
+  const dados = {
+    exportadoEm: new Date().toISOString(),
+    vendas: vendas,
+    produtos: produtos
+  };
+
+  try {
+    await fetch(sheetsUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados)
+    });
+    const agora = new Date().toLocaleString('pt-BR');
+    save('drive_ultimo_envio', agora);
+    const el = document.getElementById('drive-ultimo');
+    if (el) el.textContent = 'Último envio: ' + agora;
+    toast('✅ Backup enviado para o Google Drive!');
+  } catch(e) {
+    toast('⚠️ Erro de conexão. Verifique a URL.');
+  } finally {
+    if (btn) { btn.textContent = '☁️ Enviar backup para o Drive agora'; btn.disabled = false; }
+  }
+}
+
+// chamado ao registrar venda — envia automaticamente se configurado
+async function enviarVendaParaSheets(venda) {
+  if (!sheetsUrl) return;
+  // Para Drive: envia o backup completo atualizado
+  const dados = { exportadoEm: new Date().toISOString(), vendas, produtos };
+  try {
+    await fetch(sheetsUrl, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados)
+    });
+    const agora = new Date().toLocaleString('pt-BR');
+    save('drive_ultimo_envio', agora);
+  } catch {}
+}
+
+// ---- CÂMERA / SCANNER ----
+async function lerCodigoDeBarras(imageSrc) {
+  if (!('BarcodeDetector' in window)) return null;
+  try {
+    const detector = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code'] });
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = imageSrc; });
+    const codigos = await detector.detect(img);
+    return codigos.length ? codigos[0].rawValue : null;
+  } catch { return null; }
+}
+
+function mostrarResultadoScan(msg, tipo) {
+  const el = document.getElementById('scan-resultado');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.background = tipo === 'ok' ? '#f0fdf4' : tipo === 'aviso' ? '#fffbeb' : '#fef2f2';
+  el.style.color = tipo === 'ok' ? '#16a34a' : tipo === 'aviso' ? '#92400e' : '#dc2626';
+  el.style.border = '1.5px solid ' + (tipo === 'ok' ? '#bbf7d0' : tipo === 'aviso' ? '#fde68a' : '#fecaca');
+  el.textContent = msg;
+  setTimeout(() => { if (el) el.style.display = 'none'; }, 4000);
+}
+
+async function processarFoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const src = e.target.result;
+
+    if (!('BarcodeDetector' in window)) {
+      mostrarResultadoScan('⚠️ Leitura de código não suportada neste aparelho. Preencha manualmente.', 'aviso');
+      return;
+    }
+
+    mostrarResultadoScan('🔍 Lendo código...', 'aviso');
+    const codigo = await lerCodigoDeBarras(src);
+
+    if (!codigo) {
+      mostrarResultadoScan('📷 Foto tirada. Código não detectado — preencha manualmente.', 'aviso');
+      return;
+    }
+
+    // Busca produto pelo código
+    const prod = produtos.find(p => p.codigo === codigo);
+    if (prod) {
+      document.getElementById('v-produto').value = prod.id;
+      document.getElementById('v-nome').value = prod.nome;
+      document.getElementById('v-preco').value = prod.preco;
+      calcPreview();
+      mostrarResultadoScan('✅ Produto encontrado: ' + prod.nome + ' · ' + fmt(prod.preco), 'ok');
+    } else {
+      mostrarResultadoScan('⚠️ Código ' + codigo + ' não está cadastrado. Cadastre na aba Produtos e informe o código.', 'aviso');
+      document.getElementById('v-nome').value = '';
+      document.getElementById('v-preco').value = '';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function escanearCadastroProduto() {
+  document.getElementById('camera-produto').click();
+}
+
+async function processarCodigoProduto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  if (!('BarcodeDetector' in window)) {
+    toast('⚠️ Leitura não suportada neste aparelho. Digite o código manualmente.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const codigo = await lerCodigoDeBarras(e.target.result);
+    if (codigo) {
+      document.getElementById('p-codigo').value = codigo;
+      toast('✅ Código lido: ' + codigo);
+    } else {
+      toast('⚠️ Código não detectado. Tente novamente ou digite manualmente.');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ---- BACKUP ----
+function renderBackupInfo() {
+  const el = document.getElementById('backup-info');
+  if (!el) return;
+  const totalVendas = vendas.reduce((s, v) => s + v.total, 0);
+  el.innerHTML =
+    '📦 <strong>' + produtos.length + '</strong> produto(s) cadastrado(s)<br>' +
+    '🧾 <strong>' + vendas.length + '</strong> venda(s) no histórico<br>' +
+    '💰 Total acumulado: <strong>' + fmt(totalVendas) + '</strong><br>' +
+    '🕐 Última atualização: ' + new Date().toLocaleString('pt-BR');
+}
+
+async function compartilharWhatsApp() {
+  const dados = {
+    versao: '1.0',
+    exportadoEm: new Date().toISOString(),
+    vendas: vendas,
+    produtos: produtos
+  };
+  const json = JSON.stringify(dados, null, 2);
+  const nomeArquivo = 'vendas-backup-' + today() + '.json';
+
+  // Web Share API — abre menu de compartilhamento do celular (WhatsApp, Drive, e-mail etc)
+  if (navigator.canShare) {
+    try {
+      const file = new File([json], nomeArquivo, { type: 'application/json' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Backup de Vendas', text: 'Backup de vendas – ' + today() });
+        return;
+      }
+    } catch(e) {
+      if (e.name !== 'AbortError') { /* continua para fallback */ }
+      else return; // usuário cancelou
+    }
+  }
+
+  // Fallback: download do arquivo
+  try {
+    const downloads = await claude.use('downloads');
+    if (downloads) {
+      await downloads.save({ filename: nomeArquivo, data: json });
+      toast('✅ Arquivo salvo — compartilhe-o pelo WhatsApp');
+    }
+  } catch { toast('⚠️ Use o botão Baixar e compartilhe o arquivo'); }
+}
+
+async function exportarDados() {
+  const dados = {
+    versao: '1.0',
+    exportadoEm: new Date().toISOString(),
+    vendas: vendas,
+    produtos: produtos
+  };
+  const json = JSON.stringify(dados, null, 2);
+  const nomeArquivo = 'vendas-backup-' + today() + '.json';
+
+  try {
+    const downloads = await claude.use('downloads');
+    if (downloads) {
+      await downloads.save({ filename: nomeArquivo, data: json });
+      toast('✅ Backup salvo: ' + nomeArquivo);
+    } else {
+      toast('⚠️ Download não disponível neste dispositivo');
+    }
+  } catch(e) {
+    toast('⚠️ ' + (e.message || 'Erro ao salvar backup'));
+  }
+}
+
+function importarMesclar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const dados = JSON.parse(e.target.result);
+      if (!dados.vendas) throw new Error('Formato inválido');
+
+      // Mescla vendas: só adiciona IDs que não existem localmente
+      const idsExistentes = new Set(vendas.map(v => v.id));
+      const novasVendas = dados.vendas.filter(v => !idsExistentes.has(v.id));
+
+      // Mescla produtos: só adiciona IDs que não existem localmente
+      const prodExistentes = new Set(produtos.map(p => p.id));
+      const novosProd = (dados.produtos || []).filter(p => !prodExistentes.has(p.id));
+
+      if (!novasVendas.length && !novosProd.length) {
+        toast('ℹ️ Nenhuma novidade — tudo já estava importado.');
+        input.value = '';
+        return;
+      }
+
+      if (!confirm('Adicionar ' + novasVendas.length + ' venda(s) nova(s) e ' + novosProd.length + ' produto(s) novo(s)?')) {
+        input.value = '';
+        return;
+      }
+
+      vendas = [...vendas, ...novasVendas];
+      produtos = [...produtos, ...novosProd];
+      save('vendas_app', vendas);
+      save('produtos_app', produtos);
+
+      const statusEl = document.getElementById('backup-status');
+      const statusText = document.getElementById('backup-status-text');
+      statusText.textContent = '✅ Mesclado! ➕' + novasVendas.length + ' venda(s)' + (novosProd.length ? ' e ➕' + novosProd.length + ' produto(s)' : '') + ' adicionados.';
+      statusEl.style.display = 'block';
+      renderBackupInfo();
+      updateTop();
+      input.value = '';
+    } catch(err) {
+      toast('❌ Arquivo inválido: ' + err.message);
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function importarDados(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const dados = JSON.parse(e.target.result);
+      if (!dados.vendas || !dados.produtos) throw new Error('Formato inválido');
+      if (!confirm('Restaurar backup? Todos os dados atuais serão substituídos.\n\n' + dados.vendas.length + ' venda(s) · ' + dados.produtos.length + ' produto(s)')) {
+        input.value = '';
+        return;
+      }
+      vendas = dados.vendas;
+      produtos = dados.produtos;
+      save('vendas_app', vendas);
+      save('produtos_app', produtos);
+
+      const statusEl = document.getElementById('backup-status');
+      const statusText = document.getElementById('backup-status-text');
+      statusText.textContent = '✅ Restaurado! ' + vendas.length + ' venda(s) e ' + produtos.length + ' produto(s).';
+      statusEl.style.display = 'block';
+      renderBackupInfo();
+      updateTop();
+      input.value = '';
+    } catch(err) {
+      toast('❌ Arquivo inválido: ' + err.message);
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ---- INIT ----
+renderDashboard();
+</script>
+</body>
+</html>
