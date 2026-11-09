@@ -202,6 +202,36 @@
     transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 200;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* MODAL VENDEDOR */
+  #vendedor-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    z-index: 400; align-items: flex-end; justify-content: center;
+  }
+  #vendedor-modal.open { display: flex; }
+  .vendedor-sheet {
+    background: var(--card); border-radius: 20px 20px 0 0;
+    padding: 24px 20px 36px; width: 100%; max-width: 480px;
+  }
+  .vendedor-sheet h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 4px; }
+  .vendedor-sheet p { font-size: 0.82rem; color: var(--muted); margin-bottom: 16px; }
+  .vendedor-btn {
+    display: block; width: 100%; padding: 14px 16px;
+    background: var(--bg); border: 2px solid var(--border); border-radius: 12px;
+    font-size: 1rem; font-weight: 700; cursor: pointer; text-align: left;
+    margin-bottom: 8px; color: var(--text); transition: all 0.15s;
+  }
+  .vendedor-btn:active { background: #eff6ff; border-color: var(--primary); }
+  .vendedor-btn.ativo { background: #eff6ff; border-color: var(--primary); color: var(--primary); }
+
+  /* BADGE VENDEDOR NA TOPBAR */
+  #vendedor-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(255,255,255,0.18); border-radius: 20px;
+    padding: 3px 10px 3px 8px; font-size: 0.72rem; font-weight: 700;
+    cursor: pointer; margin-top: 3px; color: white; border: 1px solid rgba(255,255,255,0.3);
+  }
+  #vendedor-badge:active { background: rgba(255,255,255,0.3); }
 </style>
 </head>
 <body>
@@ -211,8 +241,26 @@
     <div class="topbar h1" style="font-size:1.1rem;font-weight:700;">🛒 Controle de Vendas</div>
     <div class="date" id="topDate"></div>
     <div id="sync-status">☁️ Sincronizando...</div>
+    <div id="vendedor-badge" onclick="abrirModal('vendedor-modal');renderVendedoresModal()">👤 <span id="vendedor-nome-badge">Selecionar</span></div>
   </div>
   <div style="font-size:1.5rem;" id="topTotal"></div>
+</div>
+
+<!-- MODAL SELEÇÃO VENDEDOR -->
+<div id="vendedor-modal">
+  <div class="vendedor-sheet">
+    <div style="font-size:2rem;text-align:center;margin-bottom:8px;">👤</div>
+    <h3 style="text-align:center;">Quem está vendendo?</h3>
+    <p style="text-align:center;">Selecione seu nome para registrar as vendas corretamente.</p>
+    <div id="vendedor-lista-modal"></div>
+    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
+      <div style="font-size:0.8rem;font-weight:700;color:var(--muted);margin-bottom:8px;">ADICIONAR NOVO VENDEDOR</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="novo-vendedor-input" placeholder="Nome do vendedor" autocomplete="off" style="flex:1;margin-top:0;">
+        <button onclick="adicionarVendedor()" style="padding:11px 14px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:800;cursor:pointer;">➕</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ===== DASHBOARD ===== -->
@@ -359,6 +407,31 @@
   </div>
 </div>
 
+<!-- ===== VENDEDORES ===== -->
+<div class="screen" id="screen-vendedores">
+  <div class="card">
+    <div style="font-weight:800;font-size:1.05rem;margin-bottom:4px;">👥 Vendedores</div>
+    <div style="font-size:0.8rem;color:var(--muted);">Cadastre os vendedores e selecione quem está usando este celular</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Vendedor Ativo neste Celular</div>
+    <div id="vendedor-ativo-info" style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:12px;font-weight:700;font-size:1rem;">—</div>
+    <button class="btn btn-outline" onclick="abrirModal('vendedor-modal');renderVendedoresModal()" style="margin-top:0;">🔄 Trocar Vendedor</button>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Adicionar Vendedor</div>
+    <input type="text" id="p-vendedor-nome" placeholder="Nome do vendedor" autocomplete="off">
+    <button class="btn btn-primary" onclick="adicionarVendedorTela()">➕ Adicionar</button>
+  </div>
+
+  <div class="section-title">Equipe Cadastrada</div>
+  <div class="card" id="vendedores-lista-tela">
+    <div class="empty"><div class="empty-icon">👥</div><p>Nenhum vendedor cadastrado.</p></div>
+  </div>
+</div>
+
 <!-- ===== BACKUP ===== -->
 <div class="screen" id="screen-backup">
   <div class="card">
@@ -487,9 +560,9 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
     Produtos
   </button>
-  <button class="nav-btn" onclick="goScreen('backup',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    Backup
+  <button class="nav-btn" onclick="goScreen('vendedores',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Vendedores
   </button>
 </nav>
 
@@ -526,15 +599,18 @@ function save(k, v) {
 
 let vendas = load('vendas_app', []);
 let produtos = load('produtos_app', []);
+let vendedores = load('vendedores_app', []);
+let vendedorAtual = load('vendedor_atual', null); // { id, nome }
 
 // Carrega dados da nuvem ao iniciar
 async function inicializarDados() {
   const statusEl = document.getElementById('sync-status');
   if (statusEl) statusEl.textContent = '☁️ Sincronizando...';
   try {
-    const [rv, rp] = await Promise.all([
+    const [rv, rp, rvd] = await Promise.all([
       sb.from('vendas').select('*').order('created_at', { ascending: true }),
-      sb.from('produtos').select('*').order('created_at', { ascending: true })
+      sb.from('produtos').select('*').order('created_at', { ascending: true }),
+      sb.from('vendedores').select('*').order('created_at', { ascending: true })
     ]);
     if (!rv.error && rv.data && rv.data.length > 0) {
       vendas = rv.data;
@@ -544,8 +620,19 @@ async function inicializarDados() {
       produtos = rp.data;
       save('produtos_app', produtos);
     }
+    if (!rvd.error && rvd.data) {
+      vendedores = rvd.data;
+      save('vendedores_app', vendedores);
+    }
     renderDashboard();
+    atualizarBadgeVendedor();
     if (statusEl) { statusEl.textContent = '✅ Nuvem'; statusEl.style.color='#16a34a'; }
+    // Se não há vendedor selecionado e há vendedores cadastrados, abre modal
+    if (!vendedorAtual && vendedores.length > 0) {
+      setTimeout(() => { abrirModal('vendedor-modal'); renderVendedoresModal(); }, 600);
+    } else if (!vendedorAtual && vendedores.length === 0) {
+      setTimeout(() => { abrirModal('vendedor-modal'); renderVendedoresModal(); }, 600);
+    }
   } catch(e) {
     if (statusEl) { statusEl.textContent = '📴 Offline'; statusEl.style.color='#dc2626'; }
   }
@@ -578,6 +665,7 @@ function goScreen(name, btn) {
   if (name === 'produtos') renderProdutos();
   if (name === 'backup') { renderBackupInfo(); initSheets(); }
   if (name === 'venda') renderSelectProdutos();
+  if (name === 'vendedores') { renderVendedoresTelaLista(); }
 }
 
 // ---- TOPBAR ----
@@ -694,7 +782,8 @@ function registrarVenda() {
   const venda = {
     id: uid(), nome, qtd, preco, total: qtd * preco,
     pgto, data: today(),
-    hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})
+    hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+    vendedor: vendedorAtual ? vendedorAtual.nome : ''
   };
   vendas.push(venda);
   save('vendas_app', vendas);
@@ -757,7 +846,7 @@ function renderHistorico(filtro) {
     <div class="venda-item">
       <div style="flex:1;min-width:0;">
         <div class="venda-nome">${esc(v.nome)}</div>
-        <div class="venda-meta">${v.qtd}x ${fmt(v.preco)} · ${v.pgto} · ${v.data.slice(5).replace('-','/')} ${v.hora}</div>
+        <div class="venda-meta">${v.qtd}x ${fmt(v.preco)} · ${v.pgto} · ${v.data.slice(5).replace('-','/')} ${v.hora}${v.vendedor ? ' · 👤 ' + esc(v.vendedor) : ''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <div class="venda-valor">${fmt(v.total)}</div>
@@ -881,10 +970,11 @@ function montarTextoRelatorio() {
   let msg = '*RELATORIO DE VENDAS*\n';
   msg += '----------------------------\n';
   msg += 'Periodo: ' + periodoLabel + '\n';
+  if (vendedorAtual) msg += 'Vendedor: ' + vendedorAtual.nome + '\n';
   msg += '----------------------------\n\n';
   lista.forEach((v, i) => {
     msg += (i + 1) + '. *' + v.nome + '*\n';
-    msg += '   ' + v.qtd + 'x ' + fmt(v.preco) + ' = ' + fmt(v.total) + ' (' + v.pgto + ') ' + (v.hora || '') + '\n';
+    msg += '   ' + v.qtd + 'x ' + fmt(v.preco) + ' = ' + fmt(v.total) + ' (' + v.pgto + ') ' + (v.hora || '') + (v.vendedor ? ' · ' + v.vendedor : '') + '\n';
   });
   msg += '\n----------------------------\n';
   msg += lista.length + ' venda' + (lista.length > 1 ? 's' : '') + '\n\n';
@@ -1388,8 +1478,118 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ---- VENDEDORES ----
+function atualizarBadgeVendedor() {
+  const badge = document.getElementById('vendedor-nome-badge');
+  if (badge) badge.textContent = vendedorAtual ? vendedorAtual.nome : 'Selecionar';
+  const ativoInfo = document.getElementById('vendedor-ativo-info');
+  if (ativoInfo) ativoInfo.textContent = vendedorAtual ? '👤 ' + vendedorAtual.nome : '— Nenhum selecionado —';
+}
+
+function renderVendedoresModal() {
+  const el = document.getElementById('vendedor-lista-modal');
+  if (!el) return;
+  if (!vendedores.length) {
+    el.innerHTML = '<p style="text-align:center;color:var(--muted);font-size:0.85rem;">Nenhum vendedor cadastrado ainda.<br>Adicione abaixo! 👇</p>';
+    return;
+  }
+  el.innerHTML = vendedores.map(v => `
+    <button class="vendedor-btn ${vendedorAtual && vendedorAtual.id === v.id ? 'ativo' : ''}"
+      onclick="selecionarVendedor('${v.id}','${esc(v.nome)}')">
+      👤 ${esc(v.nome)} ${vendedorAtual && vendedorAtual.id === v.id ? '✓' : ''}
+    </button>
+  `).join('');
+}
+
+function selecionarVendedor(id, nome) {
+  vendedorAtual = { id, nome };
+  save('vendedor_atual', vendedorAtual);
+  atualizarBadgeVendedor();
+  renderVendedoresModal();
+  renderVendedoresTelaLista();
+  setTimeout(() => fecharModal('vendedor-modal'), 300);
+  toast('✅ ' + nome + ' selecionado(a)!');
+}
+
+async function adicionarVendedor() {
+  const input = document.getElementById('novo-vendedor-input');
+  const nome = input.value.trim();
+  if (!nome) { toast('⚠️ Digite um nome'); return; }
+  if (vendedores.find(v => v.nome.toLowerCase() === nome.toLowerCase())) {
+    toast('⚠️ Vendedor já cadastrado'); return;
+  }
+  const novo = { id: uid(), nome };
+  vendedores.push(novo);
+  save('vendedores_app', vendedores);
+  sbUpsert('vendedores', novo);
+  input.value = '';
+  renderVendedoresModal();
+  renderVendedoresTelaLista();
+  toast('✅ ' + nome + ' adicionado(a)!');
+  // Seleciona automaticamente se for o primeiro
+  if (vendedores.length === 1) selecionarVendedor(novo.id, novo.nome);
+}
+
+async function adicionarVendedorTela() {
+  const input = document.getElementById('p-vendedor-nome');
+  const nome = input.value.trim();
+  if (!nome) { toast('⚠️ Digite um nome'); return; }
+  if (vendedores.find(v => v.nome.toLowerCase() === nome.toLowerCase())) {
+    toast('⚠️ Vendedor já cadastrado'); return;
+  }
+  const novo = { id: uid(), nome };
+  vendedores.push(novo);
+  save('vendedores_app', vendedores);
+  sbUpsert('vendedores', novo);
+  input.value = '';
+  renderVendedoresTelaLista();
+  toast('✅ ' + nome + ' adicionado(a)!');
+  if (vendedores.length === 1) selecionarVendedor(novo.id, novo.nome);
+}
+
+async function deletarVendedor(id) {
+  const v = vendedores.find(x => x.id === id);
+  if (!confirm('Remover ' + (v ? v.nome : 'vendedor') + '?')) return;
+  vendedores = vendedores.filter(x => x.id !== id);
+  save('vendedores_app', vendedores);
+  sbDelete('vendedores', id);
+  if (vendedorAtual && vendedorAtual.id === id) {
+    vendedorAtual = null;
+    save('vendedor_atual', null);
+    atualizarBadgeVendedor();
+  }
+  renderVendedoresTelaLista();
+  toast('🗑️ Vendedor removido');
+}
+
+function renderVendedoresTelaLista() {
+  const el = document.getElementById('vendedores-lista-tela');
+  if (!el) return;
+  atualizarBadgeVendedor();
+  if (!vendedores.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><p>Nenhum vendedor cadastrado.</p></div>';
+    return;
+  }
+  el.innerHTML = vendedores.map(v => `
+    <div class="produto-item">
+      <div>
+        <div class="produto-nome">👤 ${esc(v.nome)}</div>
+        ${vendedorAtual && vendedorAtual.id === v.id ? '<span class="badge badge-ok">Ativo neste celular</span>' : ''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button onclick="selecionarVendedor('${v.id}','${esc(v.nome)}')"
+          style="padding:7px 12px;background:#eff6ff;color:var(--primary);border:none;border-radius:8px;font-weight:700;font-size:0.8rem;cursor:pointer;">
+          Usar
+        </button>
+        <button class="venda-delete" onclick="deletarVendedor('${v.id}')">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
 // ---- INIT ----
 renderDashboard();
+atualizarBadgeVendedor();
 inicializarDados(); // carrega da nuvem
 </script>
 </body>
