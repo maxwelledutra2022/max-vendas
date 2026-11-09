@@ -264,6 +264,26 @@
   .admin-vend-nome { font-weight: 700; font-size: 0.95rem; }
   .admin-vend-meta { font-size: 0.75rem; color: var(--muted); }
   .admin-vend-total { font-weight: 800; color: var(--success); font-size: 1rem; }
+
+  /* MODAL DEFINIR SENHA */
+  #definir-senha-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    z-index: 500; align-items: center; justify-content: center; padding: 20px;
+  }
+  #definir-senha-modal.open { display: flex; }
+
+  /* MODAL SENHA VENDEDOR */
+  #senha-vendedor-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    z-index: 500; align-items: center; justify-content: center; padding: 20px;
+  }
+  #senha-vendedor-modal.open { display: flex; }
+  .senha-sheet {
+    background: var(--card); border-radius: 20px;
+    padding: 28px 24px; width: 100%; max-width: 340px; text-align: center;
+  }
+  .senha-sheet h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; }
+  .senha-sheet p { font-size: 0.82rem; color: var(--muted); margin-bottom: 16px; }
 </style>
 </head>
 <body>
@@ -278,6 +298,27 @@
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
     <div style="font-size:1.5rem;" id="topTotal"></div>
     <button id="admin-btn" onclick="abrirAdmin()">🔒 Admin</button>
+  </div>
+</div>
+
+<!-- MODAL SENHA VENDEDOR -->
+<div id="senha-vendedor-modal" onclick="if(event.target===this)cancelarSenhaVendedor()">
+  <div class="senha-sheet">
+    <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🔑</div>
+    <h3 id="senha-vendedor-titulo">Digite a senha</h3>
+    <p id="senha-vendedor-desc">Informe sua senha para continuar.</p>
+    <input type="password" id="senha-vendedor-input" placeholder="Senha" autocomplete="off"
+      style="width:100%;margin-bottom:12px;padding:14px;border:1.5px solid var(--border);border-radius:12px;font-size:1.1rem;text-align:center;letter-spacing:0.2em;"
+      onkeydown="if(event.key==='Enter')confirmarSenhaVendedor()">
+    <button onclick="confirmarSenhaVendedor()" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;margin-bottom:10px;">Entrar</button>
+    <button onclick="cancelarSenhaVendedor()" style="width:100%;padding:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:0.9rem;cursor:pointer;">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL DEFINIR SENHA VENDEDOR (admin) -->
+<div id="definir-senha-modal" onclick="if(event.target===this)fecharModal('definir-senha-modal')">
+  <div class="senha-sheet" id="definir-senha-content">
+    <!-- preenchido dinamicamente -->
   </div>
 </div>
 
@@ -1649,10 +1690,51 @@ function renderVendedoresModal() {
   }
   el.innerHTML = vendedores.map(v => `
     <button class="vendedor-btn ${vendedorAtual && vendedorAtual.id === v.id ? 'ativo' : ''}"
-      onclick="selecionarVendedor('${v.id}','${esc(v.nome)}')">
-      👤 ${esc(v.nome)} ${vendedorAtual && vendedorAtual.id === v.id ? '✓' : ''}
+      onclick="iniciarSelecaoVendedor('${v.id}','${esc(v.nome)}')">
+      ${v.senha ? '🔒' : '👤'} ${esc(v.nome)} ${vendedorAtual && vendedorAtual.id === v.id ? '✓' : ''}
     </button>
   `).join('');
+}
+
+// Variável temporária para a seleção pendente de senha
+let _selecaoPendente = null;
+
+function iniciarSelecaoVendedor(id, nome) {
+  const v = vendedores.find(x => x.id === id);
+  if (v && v.senha) {
+    // Pede senha antes de selecionar
+    _selecaoPendente = { id, nome };
+    document.getElementById('senha-vendedor-titulo').textContent = '🔑 ' + nome;
+    document.getElementById('senha-vendedor-desc').textContent = 'Digite sua senha para continuar.';
+    const inp = document.getElementById('senha-vendedor-input');
+    inp.value = '';
+    inp.style.border = '1.5px solid var(--border)';
+    document.getElementById('senha-vendedor-modal').classList.add('open');
+    setTimeout(() => inp.focus(), 100);
+  } else {
+    selecionarVendedor(id, nome);
+  }
+}
+
+function confirmarSenhaVendedor() {
+  if (!_selecaoPendente) return;
+  const inp = document.getElementById('senha-vendedor-input');
+  const v = vendedores.find(x => x.id === _selecaoPendente.id);
+  if (v && inp.value === v.senha) {
+    fecharModal('senha-vendedor-modal');
+    selecionarVendedor(_selecaoPendente.id, _selecaoPendente.nome);
+    _selecaoPendente = null;
+  } else {
+    inp.style.border = '1.5px solid var(--danger)';
+    inp.value = '';
+    inp.placeholder = 'Senha incorreta!';
+    setTimeout(() => { inp.style.border = '1.5px solid var(--border)'; inp.placeholder = 'Senha'; }, 1500);
+  }
+}
+
+function cancelarSenhaVendedor() {
+  _selecaoPendente = null;
+  fecharModal('senha-vendedor-modal');
 }
 
 function selecionarVendedor(id, nome) {
@@ -1663,6 +1745,38 @@ function selecionarVendedor(id, nome) {
   renderVendedoresTelaLista();
   setTimeout(() => fecharModal('vendedor-modal'), 300);
   toast('✅ ' + nome + ' selecionado(a)!');
+}
+
+function abrirDefinirSenha(id) {
+  const v = vendedores.find(x => x.id === id);
+  if (!v) return;
+  const temSenha = !!v.senha;
+  document.getElementById('definir-senha-content').innerHTML = `
+    <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🔑</div>
+    <h3 class="senha-sheet h3" style="font-size:1.1rem;font-weight:800;margin-bottom:6px;">${temSenha ? 'Alterar Senha' : 'Definir Senha'}</h3>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:16px;">Vendedor: <strong>${esc(v.nome)}</strong></p>
+    ${temSenha ? '<p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;">Deixe em branco para remover a senha.</p>' : ''}
+    <input type="password" id="definir-senha-input" placeholder="${temSenha ? 'Nova senha (ou vazio p/ remover)' : 'Nova senha'}" autocomplete="off"
+      style="width:100%;margin-bottom:12px;padding:14px;border:1.5px solid var(--border);border-radius:12px;font-size:1rem;text-align:center;"
+      onkeydown="if(event.key==='Enter')salvarSenhaVendedor('${id}')">
+    <button onclick="salvarSenhaVendedor('${id}')" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;margin-bottom:10px;">Salvar</button>
+    <button onclick="fecharModal('definir-senha-modal')" style="width:100%;padding:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:0.9rem;cursor:pointer;">Cancelar</button>
+  `;
+  document.getElementById('definir-senha-modal').classList.add('open');
+  setTimeout(() => document.getElementById('definir-senha-input').focus(), 100);
+}
+
+async function salvarSenhaVendedor(id) {
+  const inp = document.getElementById('definir-senha-input');
+  const novaSenha = inp.value.trim();
+  const idx = vendedores.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  vendedores[idx].senha = novaSenha || null;
+  save('vendedores_app', vendedores);
+  await sbUpsert('vendedores', vendedores[idx]);
+  fecharModal('definir-senha-modal');
+  renderVendedoresTelaLista();
+  toast(novaSenha ? '🔑 Senha definida!' : '🔓 Senha removida!');
 }
 
 async function adicionarVendedor() {
@@ -1727,13 +1841,19 @@ function renderVendedoresTelaLista() {
   el.innerHTML = vendedores.map(v => `
     <div class="produto-item">
       <div>
-        <div class="produto-nome">👤 ${esc(v.nome)}</div>
+        <div class="produto-nome">${v.senha ? '🔒' : '👤'} ${esc(v.nome)}</div>
         ${vendedorAtual && vendedorAtual.id === v.id ? '<span class="badge badge-ok">Ativo neste celular</span>' : ''}
+        ${v.senha ? '<span style="font-size:0.7rem;color:var(--muted);">Senha definida</span>' : '<span style="font-size:0.7rem;color:var(--muted);">Sem senha</span>'}
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button onclick="selecionarVendedor('${v.id}','${esc(v.nome)}')"
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button onclick="iniciarSelecaoVendedor('${v.id}','${esc(v.nome)}')"
           style="padding:7px 12px;background:#eff6ff;color:var(--primary);border:none;border-radius:8px;font-weight:700;font-size:0.8rem;cursor:pointer;">
           Usar
+        </button>
+        <button onclick="abrirDefinirSenha('${v.id}')"
+          title="Definir senha"
+          style="padding:7px 10px;background:#fef9c3;color:#854d0e;border:none;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+          🔑
         </button>
         <button class="venda-delete" onclick="deletarVendedor('${v.id}')">✕</button>
       </div>
