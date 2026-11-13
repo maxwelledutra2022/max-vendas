@@ -1131,7 +1131,17 @@ function goScreen(name, btn) {
   if (btn) btn.classList.add('active');
   if (name === 'dashboard') renderDashboard();
   if (name === 'historico') { histFiltro = 'hoje'; renderHistorico('hoje'); }
-  if (name === 'produtos') { renderProdutos(); renderBaseNomes(); renderSelectProdutosCadastro(); cfAtualizarAlertaProdutos(); }
+  if (name === 'produtos') {
+    if (!modoAdmin) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('screen-dashboard').classList.add('active');
+      document.querySelector('.nav-btn').classList.add('active');
+      cfPedirAdminParaTela('produtos', '📦 Produtos');
+      return;
+    }
+    renderProdutos(); renderBaseNomes(); renderSelectProdutosCadastro(); cfAtualizarAlertaProdutos();
+  }
   if (name === 'backup') { renderBackupInfo(); initSheets(); }
   if (name === 'venda') renderSelectProdutos();
   if (name === 'vendedores') { renderVendedoresTelaLista(); }
@@ -1142,7 +1152,7 @@ function goScreen(name, btn) {
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('screen-dashboard').classList.add('active');
       document.querySelector('.nav-btn').classList.add('active');
-      cfPedirAdminParaCorte();
+      cfPedirAdminParaTela('corte', '✂️ Corte');
       return;
     }
     cfRenderCortes(); cfRenderEstamparia(); cfRenderCostureiro(); cfRenderFinanceiro(); cfRenderEstoque(); cfRenderConfig();
@@ -1162,22 +1172,28 @@ function updateTop() {
 
 // ---- DASHBOARD ----
 // ---- ADMIN ----
-function cfPedirAdminParaCorte() {
+let _adminDestino = null; // tela de destino após login admin
+
+function cfPedirAdminParaTela(telaId, telaLabel) {
+  _adminDestino = telaId;
   const content = document.getElementById('admin-modal-content');
   content.innerHTML = `
-    <div style="font-size:2rem;text-align:center;margin-bottom:8px;">✂️🔒</div>
+    <div style="font-size:2rem;text-align:center;margin-bottom:8px;">🔒</div>
     <h3>Acesso Restrito</h3>
-    <p style="margin-bottom:16px;">A aba <strong>Corte</strong> é exclusiva para administradores. Digite a senha para continuar.</p>
+    <p style="margin-bottom:16px;">A aba <strong>${telaLabel}</strong> é exclusiva para administradores. Digite a senha para continuar.</p>
     <input type="password" id="admin-senha-input" placeholder="Senha admin" autocomplete="off"
       style="width:100%;margin-bottom:12px;padding:14px;border:1.5px solid var(--border);border-radius:12px;font-size:1rem;text-align:center;"
-      onkeydown="if(event.key==='Enter')cfConfirmarAdminCorte()">
-    <button onclick="cfConfirmarAdminCorte()" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;margin-bottom:10px;">✂️ Entrar no Corte</button>
+      onkeydown="if(event.key==='Enter')cfConfirmarAdminDestino()">
+    <button onclick="cfConfirmarAdminDestino()" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;margin-bottom:10px;">🔓 Entrar</button>
     <button onclick="fecharModal('admin-modal')" style="width:100%;padding:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:0.9rem;cursor:pointer;">Cancelar</button>
   `;
   document.getElementById('admin-modal').classList.add('open');
   setTimeout(() => { const inp = document.getElementById('admin-senha-input'); if(inp) inp.focus(); }, 100);
 }
-function cfConfirmarAdminCorte() {
+// Alias para manter compatibilidade
+function cfPedirAdminParaCorte() { cfPedirAdminParaTela('corte', '✂️ Corte'); }
+
+function cfConfirmarAdminDestino() {
   const inp = document.getElementById('admin-senha-input');
   if (!inp) return;
   if (inp.value === 'max2026') {
@@ -1186,14 +1202,18 @@ function cfConfirmarAdminCorte() {
     document.getElementById('admin-btn').classList.add('ativo');
     document.getElementById('admin-btn').textContent = '🔓 Admin';
     atualizarBadgeVendedor();
-    // Agora navega para corte
+    const destino = _adminDestino || 'dashboard';
+    _adminDestino = null;
+    // Navega para a tela destino
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('screen-corte').classList.add('active');
-    const corteBtn = document.querySelector('.nav-btn[onclick*="corte"]');
-    if (corteBtn) corteBtn.classList.add('active');
-    cfRenderCortes(); cfRenderEstamparia(); cfRenderCostureiro(); cfRenderFinanceiro(); cfRenderEstoque(); cfRenderConfig();
-    toast('✅ Acesso liberado — Controle de Corte');
+    document.getElementById('screen-' + destino).classList.add('active');
+    const btn = document.querySelector(`.nav-btn[onclick*="'${destino}'"]`);
+    if (btn) btn.classList.add('active');
+    // Inicializa a tela destino
+    if (destino === 'corte') { cfRenderCortes(); cfRenderEstamparia(); cfRenderCostureiro(); cfRenderFinanceiro(); cfRenderEstoque(); cfRenderConfig(); }
+    if (destino === 'produtos') { renderProdutos(); renderBaseNomes(); renderSelectProdutosCadastro(); cfAtualizarAlertaProdutos(); }
+    toast('✅ Acesso liberado');
   } else {
     inp.style.border = '1.5px solid var(--danger)';
     inp.value = '';
