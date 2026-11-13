@@ -3443,33 +3443,17 @@ function fcExcluir(id) {
   fcRenderHistorico();
 }
 
-function fcImprimirPDF(id) {
-  // Se recebeu ID, usa dados do histórico; senão usa o formulário atual
-  let data, estab, trocoIni, trocoFin, pix, cartao, sangria, total;
-  if (id) {
-    const f = fc_fechamentos.find(x => x.id === id);
-    if (!f) return;
-    data     = f.data;
-    estab    = f.estabelecimento || 'Todos';
-    trocoIni = f.troco_inicial || 0;
-    trocoFin = f.troco_final || 0;
-    pix      = f.pix || 0;
-    cartao   = f.cartao || 0;
-    sangria  = f.sangria || 0;
-    total    = f.total || 0;
-  } else {
-    data     = document.getElementById('fc-data').value;
-    estab    = document.getElementById('fc-estab').value || 'Todos';
-    trocoIni = fcVal('fc-troco-inicial');
-    trocoFin = fcVal('fc-troco-final');
-    pix      = fcVal('fc-pix');
-    cartao   = fcVal('fc-cartao');
-    sangria  = fcVal('fc-sangria');
-    total    = trocoFin + pix + cartao + sangria - trocoIni;
-  }
+function fcImprimirPDF() {
+  const data    = document.getElementById('fc-data').value;
+  const estab   = document.getElementById('fc-estab').value || 'Todos';
+  const trocoIni = fcVal('fc-troco-inicial');
+  const trocoFin = fcVal('fc-troco-final');
+  const pix     = fcVal('fc-pix');
+  const cartao  = fcVal('fc-cartao');
+  const sangria = fcVal('fc-sangria');
+  const total   = trocoFin + pix + cartao + sangria - trocoIni;
 
-
-  const fmt = v => 'R$ ' + (v||0).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  const fmt = v => 'R$ ' + v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
   const dataFmt = data ? new Date(data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
   const agora = new Date().toLocaleString('pt-BR');
 
