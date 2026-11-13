@@ -3443,6 +3443,75 @@ function fcExcluir(id) {
   fcRenderHistorico();
 }
 
+function fcImprimirPDF() {
+  const data    = document.getElementById('fc-data').value;
+  const estab   = document.getElementById('fc-estab').value || 'Todos';
+  const trocoIni = fcVal('fc-troco-inicial');
+  const trocoFin = fcVal('fc-troco-final');
+  const pix     = fcVal('fc-pix');
+  const cartao  = fcVal('fc-cartao');
+  const sangria = fcVal('fc-sangria');
+  const total   = trocoFin + pix + cartao + sangria - trocoIni;
+
+  const fmt = v => 'R$ ' + v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  const dataFmt = data ? new Date(data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  const agora = new Date().toLocaleString('pt-BR');
+
+  const infoEl = document.getElementById('fc-info-vendas');
+  const infoTxt = infoEl ? infoEl.innerText.trim() : '';
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Fechamento de Caixa - ${dataFmt}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, sans-serif; padding: 32px; color: #111; font-size: 14px; }
+  h1 { font-size: 20px; font-weight: 900; margin-bottom: 4px; }
+  .sub { color: #555; font-size: 12px; margin-bottom: 24px; }
+  .section { margin-bottom: 20px; }
+  .section-title { font-weight: 800; font-size: 13px; text-transform: uppercase; color: #444; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 10px; }
+  .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; }
+  .row .label { color: #333; }
+  .row .val { font-weight: 700; }
+  .total-box { background: #111; color: #fff; border-radius: 10px; padding: 16px 20px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }
+  .total-box .tl { font-size: 12px; opacity: .7; }
+  .total-box .tv { font-size: 24px; font-weight: 900; }
+  .formula { text-align: right; font-size: 11px; color: #aaa; margin-top: 4px; }
+  .info { background: #f0fdf4; border-left: 4px solid #22c55e; padding: 10px 14px; border-radius: 6px; font-size: 12px; color: #166534; margin-bottom: 16px; white-space: pre-line; }
+  .footer { margin-top: 32px; font-size: 11px; color: #999; text-align: center; }
+  @media print { body { padding: 20px; } }
+</style>
+</head><body>
+<h1>💰 Fechamento de Caixa</h1>
+<div class="sub">Data: <b>${dataFmt}</b> &nbsp;|&nbsp; Estabelecimento: <b>${estab}</b> &nbsp;|&nbsp; Gerado em: ${agora}</div>
+
+${infoTxt ? `<div class="info">${infoTxt}</div>` : ''}
+
+<div class="section">
+  <div class="section-title">Lançamentos</div>
+  <div class="row"><span class="label">💵 Troco Inicial</span><span class="val">${fmt(trocoIni)}</span></div>
+  <div class="row"><span class="label">💵 Troco Final</span><span class="val">${fmt(trocoFin)}</span></div>
+  <div class="row"><span class="label">📲 Pix</span><span class="val">${fmt(pix)}</span></div>
+  <div class="row"><span class="label">💳 Cartão</span><span class="val">${fmt(cartao)}</span></div>
+  <div class="row"><span class="label">💸 Sangria</span><span class="val">${fmt(sangria)}</span></div>
+</div>
+
+<div class="total-box">
+  <div class="tl">TOTAL DE VENDAS</div>
+  <div class="tv">${fmt(total)}</div>
+</div>
+<div class="formula">Troco Final + Pix + Cartão + Sangria − Troco Inicial</div>
+
+<div class="footer">Sistema Max Vendas &nbsp;•&nbsp; Fechamento gerado automaticamente</div>
+
+<script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+}
+
 function fcRenderHistorico() {
   const el = document.getElementById('fc-historico');
   if (!el) return;
