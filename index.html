@@ -1135,7 +1135,18 @@ function goScreen(name, btn) {
   if (name === 'backup') { renderBackupInfo(); initSheets(); }
   if (name === 'venda') renderSelectProdutos();
   if (name === 'vendedores') { renderVendedoresTelaLista(); }
-  if (name === 'corte') { cfRenderCortes(); cfRenderEstamparia(); cfRenderCostureiro(); cfRenderFinanceiro(); cfRenderEstoque(); cfRenderConfig(); }
+  if (name === 'corte') {
+    if (!modoAdmin) {
+      // Voltar para a tela anterior e pedir login admin
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('screen-dashboard').classList.add('active');
+      document.querySelector('.nav-btn').classList.add('active');
+      cfPedirAdminParaCorte();
+      return;
+    }
+    cfRenderCortes(); cfRenderEstamparia(); cfRenderCostureiro(); cfRenderFinanceiro(); cfRenderEstoque(); cfRenderConfig();
+  }
 }
 
 // ---- TOPBAR ----
@@ -1151,6 +1162,45 @@ function updateTop() {
 
 // ---- DASHBOARD ----
 // ---- ADMIN ----
+function cfPedirAdminParaCorte() {
+  const content = document.getElementById('admin-modal-content');
+  content.innerHTML = `
+    <div style="font-size:2rem;text-align:center;margin-bottom:8px;">✂️🔒</div>
+    <h3>Acesso Restrito</h3>
+    <p style="margin-bottom:16px;">A aba <strong>Corte</strong> é exclusiva para administradores. Digite a senha para continuar.</p>
+    <input type="password" id="admin-senha-input" placeholder="Senha admin" autocomplete="off"
+      style="width:100%;margin-bottom:12px;padding:14px;border:1.5px solid var(--border);border-radius:12px;font-size:1rem;text-align:center;"
+      onkeydown="if(event.key==='Enter')cfConfirmarAdminCorte()">
+    <button onclick="cfConfirmarAdminCorte()" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;margin-bottom:10px;">✂️ Entrar no Corte</button>
+    <button onclick="fecharModal('admin-modal')" style="width:100%;padding:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:0.9rem;cursor:pointer;">Cancelar</button>
+  `;
+  document.getElementById('admin-modal').classList.add('open');
+  setTimeout(() => { const inp = document.getElementById('admin-senha-input'); if(inp) inp.focus(); }, 100);
+}
+function cfConfirmarAdminCorte() {
+  const inp = document.getElementById('admin-senha-input');
+  if (!inp) return;
+  if (inp.value === 'max2026') {
+    modoAdmin = true;
+    fecharModal('admin-modal');
+    document.getElementById('admin-btn').classList.add('ativo');
+    document.getElementById('admin-btn').textContent = '🔓 Admin';
+    // Agora navega para corte
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('screen-corte').classList.add('active');
+    const corteBtn = document.querySelector('.nav-btn[onclick*="corte"]');
+    if (corteBtn) corteBtn.classList.add('active');
+    cfRenderCortes(); cfRenderEstamparia(); cfRenderCostureiro(); cfRenderFinanceiro(); cfRenderEstoque(); cfRenderConfig();
+    toast('✅ Acesso liberado — Controle de Corte');
+  } else {
+    inp.style.border = '1.5px solid var(--danger)';
+    inp.value = '';
+    inp.placeholder = 'Senha incorreta!';
+    setTimeout(() => { inp.style.border = '1.5px solid var(--border)'; inp.placeholder = 'Senha admin'; }, 1500);
+  }
+}
+
 function abrirAdmin() {
   const content = document.getElementById('admin-modal-content');
   if (modoAdmin) {
