@@ -6,6 +6,7 @@
 <title>Controle de Vendas</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -827,6 +828,12 @@
       <input type="number" step="0.01" id="ct-val-costureiro" placeholder="Ex: 1.86" style="margin-bottom:8px;">
       <button class="btn btn-primary" onclick="cfSalvarConfig()">💾 Salvar</button>
     </div>
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:10px;">📊 Exportar para Excel</div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">Gera uma planilha com todas as abas: Cortes, Estamparia, Costureiro, Financeiro e Despesas.</p>
+      <button class="btn btn-primary" style="width:100%;" onclick="cfExportarExcel()">⬇️ Baixar Planilha Excel</button>
+    </div>
+
     <div class="card">
       <div style="font-weight:800;margin-bottom:8px;">🗄️ Tabelas Supabase</div>
       <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px;">Para sincronizar cortes entre dispositivos, crie as tabelas no Supabase:</p>
@@ -3015,6 +3022,167 @@ function cfSalvarConfig() {
   cf_config.val_costureiro = parseFloat(document.getElementById('ct-val-costureiro').value)||1.86;
   cfSalvar('cf_config', cf_config);
   alert('Configurações salvas!');
+}
+
+// ---- EXPORTAR EXCEL ----
+function cfExportarExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert('Biblioteca XLSX não carregada. Verifique a conexão e recarregue o app.');
+    return;
+  }
+
+  const cortes = cfCarregar('cf_cortes') || [];
+  const estamparias = cfCarregar('cf_estamparia') || [];
+  const costureiros = cfCarregar('cf_costureiro') || [];
+  const despesas = cfCarregar('cf_despesas') || [];
+
+  // helper: formatar data
+  function fmtData(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt)) return d;
+    return dt.toLocaleDateString('pt-BR');
+  }
+
+  // helper: número formatado
+  function fmtNum(n) { return isNaN(n) ? 0 : Number(n) || 0; }
+
+  // === ABA 1: CORTES ===
+  const wsCortes = XLSX.utils.json_to_sheet(
+    cortes.map(c => ({
+      'Nº Corte': c.numero || '',
+      'Descrição': c.descricao || '',
+      'Quantidade': fmtNum(c.quantidade),
+      'Data do Corte': fmtData(c.data_corte),
+      'Status': c.status || '',
+      'Observação': c.obs || ''
+    }))
+  );
+
+  // === ABA 2: ESTAMPARIA ===
+  const wsEst = XLSX.utils.json_to_sheet(
+    estamparias.map(e => {
+      const corte = cortes.find(c => c.id === e.corte_id) || {};
+      const valorTotal = fmtNum(e.entrega_total) * fmtNum(e.valor_unit);
+      const pago = e.pago ? fmtNum(e.valor_pago || valorTotal) : 0;
+      const restante = valorTotal - pago;
+      return {
+        'Nº Corte': corte.numero || '',
+        'Descrição Corte': corte.descricao || '',
+        'Estamparia': e.estamparia_nome || '',
+        'Data Envio': fmtData(e.data_envio),
+        'Qtd Enviada': fmtNum(e.quantidade),
+        'Qtd Devolvida': fmtNum(e.devolucao_total),
+        'Qtd Entregue': fmtNum(e.entrega_total),
+        'Valor Unit (R$)': fmtNum(e.valor_unit),
+        'Valor Total (R$)': valorTotal,
+        'Pago (R$)': pago,
+        'Restante (R$)': restante,
+        'Status': e.pago ? 'Pago' : 'Pendente',
+        'Observação': e.obs || ''
+      };
+    })
+  );
+
+  // === ABA 3: COSTUREIRO ===
+  const wsCos = XLSX.utils.json_to_sheet(
+    costureiros.map(c2 => {
+      const corte = cortes.find(c => c.id === c2.corte_id) || {};
+      const valorTotal = fmtNum(c2.quantidade) * fmtNum(c2.valor_unit);
+      const pago = fmtNum(c2.valor_pago);
+      const restante = valorTotal - pago;
+      return {
+        'Nº Corte': corte.numero || '',
+        'Descrição Corte': corte.descricao || '',
+        'Costureiro/Oficina': c2.costureiro_nome || '',
+        'Data Envio': fmtData(c2.data_envio),
+        'Quantidade': fmtNum(c2.quantidade),
+        'Valor Unit (R$)': fmtNum(c2.valor_unit),
+        'Valor Total (R$)': valorTotal,
+        'Valor Pago (R$)': pago,
+        'Restante (R$)': restante,
+        'Status': c2.status || '',
+        'Observação': c2.obs || ''
+      };
+    })
+  );
+
+  // === ABA 4: DESPESAS ===
+  const wsDesp = XLSX.utils.json_to_sheet(
+    despesas.map(d => ({
+      'Data': fmtData(d.data),
+      'Descrição': d.descricao || '',
+      'Valor (R$)': fmtNum(d.valor),
+      'Responsável': d.responsavel || ''
+    }))
+  );
+
+  // === ABA 5: RESUMO FINANCEIRO ===
+  const resumoRows = [];
+
+  // Resumo por corte
+  cortes.forEach(corte => {
+    const estsCorte = estamparias.filter(e => e.corte_id === corte.id);
+    const cosCorte = costureiros.filter(c2 => c2.corte_id === corte.id);
+    const totalEst = estsCorte.reduce((s, e) => s + fmtNum(e.entrega_total) * fmtNum(e.valor_unit), 0);
+    const pagoEst = estsCorte.reduce((s, e) => s + (e.pago ? fmtNum(e.valor_pago || fmtNum(e.entrega_total) * fmtNum(e.valor_unit)) : 0), 0);
+    const totalCos = cosCorte.reduce((s, c2) => s + fmtNum(c2.quantidade) * fmtNum(c2.valor_unit), 0);
+    const pagoCos = cosCorte.reduce((s, c2) => s + fmtNum(c2.valor_pago), 0);
+    const totalGeral = totalEst + totalCos;
+    const pagoGeral = pagoEst + pagoCos;
+
+    if (estsCorte.length > 0 || cosCorte.length > 0) {
+      resumoRows.push({
+        'Nº Corte': corte.numero || '',
+        'Descrição': corte.descricao || '',
+        'Status Corte': corte.status || '',
+        'Total Estamparia (R$)': totalEst,
+        'Pago Estamparia (R$)': pagoEst,
+        'Restante Estamparia (R$)': totalEst - pagoEst,
+        'Total Costureiro (R$)': totalCos,
+        'Pago Costureiro (R$)': pagoCos,
+        'Restante Costureiro (R$)': totalCos - pagoCos,
+        'Total Geral (R$)': totalGeral,
+        'Total Pago (R$)': pagoGeral,
+        'Total Restante (R$)': totalGeral - pagoGeral
+      });
+    }
+  });
+
+  // Linha de totais
+  if (resumoRows.length > 0) {
+    resumoRows.push({
+      'Nº Corte': 'TOTAL',
+      'Descrição': '',
+      'Status Corte': '',
+      'Total Estamparia (R$)': resumoRows.reduce((s, r) => s + r['Total Estamparia (R$)'], 0),
+      'Pago Estamparia (R$)': resumoRows.reduce((s, r) => s + r['Pago Estamparia (R$)'], 0),
+      'Restante Estamparia (R$)': resumoRows.reduce((s, r) => s + r['Restante Estamparia (R$)'], 0),
+      'Total Costureiro (R$)': resumoRows.reduce((s, r) => s + r['Total Costureiro (R$)'], 0),
+      'Pago Costureiro (R$)': resumoRows.reduce((s, r) => s + r['Pago Costureiro (R$)'], 0),
+      'Restante Costureiro (R$)': resumoRows.reduce((s, r) => s + r['Restante Costureiro (R$)'], 0),
+      'Total Geral (R$)': resumoRows.reduce((s, r) => s + r['Total Geral (R$)'], 0),
+      'Total Pago (R$)': resumoRows.reduce((s, r) => s + r['Total Pago (R$)'], 0),
+      'Total Restante (R$)': resumoRows.reduce((s, r) => s + r['Total Restante (R$)'], 0)
+    });
+  }
+
+  const wsResumo = XLSX.utils.json_to_sheet(resumoRows.length ? resumoRows : [{'Info': 'Sem dados financeiros'}]);
+
+  // === MONTAR WORKBOOK ===
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsCortes, 'Cortes');
+  XLSX.utils.book_append_sheet(wb, wsEst, 'Estamparia');
+  XLSX.utils.book_append_sheet(wb, wsCos, 'Costureiro');
+  XLSX.utils.book_append_sheet(wb, wsDesp, 'Despesas');
+  XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo Financeiro');
+
+  // === NOME DO ARQUIVO COM DATA ===
+  const hoje = new Date();
+  const dataStr = hoje.toISOString().slice(0, 10).replace(/-/g, '');
+  const nomeArquivo = `controle_corte_${dataStr}.xlsx`;
+
+  XLSX.writeFile(wb, nomeArquivo);
 }
 
 // ---- INIT ----
