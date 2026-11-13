@@ -2198,9 +2198,10 @@ function confirmarSenhaVendedor() {
   const inp = document.getElementById('senha-vendedor-input');
   const v = vendedores.find(x => x.id === _selecaoPendente.id);
   if (v && inp.value === v.senha) {
-    fecharModal('senha-vendedor-modal');
-    selecionarVendedor(_selecaoPendente.id, _selecaoPendente.nome);
+    const { id, nome } = _selecaoPendente;
     _selecaoPendente = null;
+    fecharModal('senha-vendedor-modal');
+    selecionarVendedor(id, nome);
   } else {
     inp.style.border = '1.5px solid var(--danger)';
     inp.value = '';
