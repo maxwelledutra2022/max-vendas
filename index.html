@@ -1053,14 +1053,14 @@ ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
         <div>
-          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">📲 Pix (R$) <span style="font-weight:400;color:#3b82f6;">auto</span></label>
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">📲 Pix (R$)</label>
           <input type="number" step="0.01" id="fc-pix" placeholder="0,00" oninput="fcCalcular()"
-            style="width:100%;padding:9px 10px;border:1.5px solid #bfdbfe;border-radius:10px;font-size:.88rem;background:#eff6ff;">
+            style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
         </div>
         <div>
-          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">💳 Cartão (R$) <span style="font-weight:400;color:#3b82f6;">auto</span></label>
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">💳 Cartão (R$)</label>
           <input type="number" step="0.01" id="fc-cartao" placeholder="0,00" oninput="fcCalcular()"
-            style="width:100%;padding:9px 10px;border:1.5px solid #bfdbfe;border-radius:10px;font-size:.88rem;background:#eff6ff;">
+            style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
         </div>
       </div>
 
@@ -3317,8 +3317,9 @@ function fcPreencherDoHistorico() {
   const totalCredito= filtradas.filter(v => v.pgto === 'Crédito').reduce((s,v) => s + (v.total||0), 0);
   const totalCartao = totalDebito + totalCredito;
 
-  document.getElementById('fc-pix').value    = totalPix    > 0 ? totalPix.toFixed(2)    : '';
-  document.getElementById('fc-cartao').value = totalCartao > 0 ? totalCartao.toFixed(2) : '';
+  // Campos manuais — apenas mostra referência no banner, não preenche automaticamente
+  // document.getElementById('fc-pix').value    = totalPix    > 0 ? totalPix.toFixed(2)    : '';
+  // document.getElementById('fc-cartao').value = totalCartao > 0 ? totalCartao.toFixed(2) : '';
 
   // Resumo de quantas vendas foram encontradas
   const totalVendas = filtradas.length;
