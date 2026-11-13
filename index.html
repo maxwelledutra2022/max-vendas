@@ -387,17 +387,6 @@
   </div>
 
   <div class="card">
-    <!-- CÂMERA / SCANNER -->
-    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="processarFoto(this)">
-
-    <button type="button" onclick="document.getElementById('camera-input').click()"
-      style="width:100%;padding:14px;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      📷 Tirar Foto / Escanear Código
-    </button>
-
-    <div id="scan-resultado" style="display:none;padding:10px 12px;border-radius:10px;font-size:0.85rem;margin-bottom:4px;"></div>
-
     <label>Produto Cadastrado</label>
     <select id="v-produto">
       <option value="">— selecione ou digite abaixo —</option>
@@ -607,15 +596,6 @@
     <input type="number" id="p-preco" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
     <label>Estoque Inicial</label>
     <input type="number" id="p-estoque" value="0" min="0" inputmode="numeric">
-    <label>Código de Barras (opcional)</label>
-    <div style="display:flex;gap:8px;">
-      <input type="text" id="p-codigo" placeholder="Ex: 7891234567890" inputmode="numeric" style="flex:1;">
-      <button type="button" onclick="escanearCadastroProduto()"
-        style="padding:11px 13px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:1.1rem;cursor:pointer;">
-        📷
-      </button>
-    </div>
-    <input type="file" id="camera-produto" accept="image/*" capture="environment" style="display:none" onchange="processarCodigoProduto(this)">
     <button class="btn btn-primary" onclick="adicionarProduto()">➕ Adicionar Produto</button>
   </div>
 
@@ -1083,7 +1063,7 @@ function adicionarProduto() {
   const nome = document.getElementById('p-nome').value.trim();
   const preco = parseValor(document.getElementById('p-preco').value);
   const estoque = parseInt(document.getElementById('p-estoque').value) || 0;
-  const codigo = document.getElementById('p-codigo').value.trim();
+  const codigo = '';
 
   if (!nome) { toast('⚠️ Informe o nome'); return; }
   if (preco <= 0) { toast('⚠️ Informe o preço'); return; }
@@ -1100,7 +1080,6 @@ function adicionarProduto() {
   document.getElementById('p-nome').value = '';
   document.getElementById('p-preco').value = '';
   document.getElementById('p-estoque').value = '0';
-  document.getElementById('p-codigo').value = '';
 
   renderProdutos();
   toast('📦 Produto cadastrado!');
@@ -1128,7 +1107,6 @@ function renderProdutos() {
           <span class="produto-preco">${fmt(p.preco)}</span>
           <span class="badge ${p.estoque <= 5 ? 'badge-low' : 'badge-ok'}">${p.estoque} un.</span>
         </div>
-        ${p.codigo ? '<div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">🔖 ' + esc(p.codigo) + '</div>' : ''}
       </div>
       <button class="venda-delete" onclick="deletarProduto('${p.id}')">✕</button>
     </div>
