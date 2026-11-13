@@ -72,6 +72,36 @@
   .screen { display: none; padding: 16px; }
   .screen.active { display: block; }
 
+  /* CORTE - Sub-tabs */
+  .corte-tab {
+    white-space:nowrap; padding:7px 14px; border:none; border-radius:8px;
+    font-size:.78rem; font-weight:700; cursor:pointer; color:var(--muted);
+    background:transparent; transition:all .15s;
+  }
+  .corte-tab.active { background:var(--primary); color:#fff; }
+  .corte-panel { display:none; }
+  .corte-panel.active { display:block; }
+  .cf-card {
+    background:#fff; border-radius:12px; padding:14px; margin-bottom:10px;
+    box-shadow:0 1px 4px rgba(0,0,0,.07); border:1px solid var(--border);
+  }
+  .cf-badge {
+    display:inline-block; padding:2px 9px; border-radius:20px;
+    font-size:.7rem; font-weight:700; letter-spacing:.02em;
+  }
+  .cf-badge-warn { background:#fef3c7; color:#92400e; }
+  .cf-badge-ok   { background:#d1fae5; color:#065f46; }
+  .cf-badge-blue { background:#dbeafe; color:#1e40af; }
+  .cf-badge-red  { background:#fee2e2; color:#991b1b; }
+  .cf-badge-gray { background:#f3f4f6; color:#6b7280; }
+  .cf-stat { background:#fff; border-radius:12px; padding:12px 14px; border:1px solid var(--border); }
+  .cf-stat .label { font-size:.72rem; color:var(--muted); font-weight:600; }
+  .cf-stat .val { font-size:1.3rem; font-weight:900; color:var(--text); line-height:1.2; }
+  .cf-progress { height:6px; border-radius:3px; background:#e5e7eb; margin-top:6px; overflow:hidden; }
+  .cf-progress-bar { height:100%; border-radius:3px; background:var(--primary); transition:width .4s; }
+  .btn-ghost { background:transparent; border:1.5px solid var(--border); color:var(--text); border-radius:20px; padding:8px 16px; font-size:.85rem; font-weight:600; cursor:pointer; }
+  #ct-config .form-input, #ct-config input[type="number"] { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:.85rem; margin-top:4px; }
+
   /* CARDS */
   .card {
     background: var(--card);
@@ -665,6 +695,251 @@
   </div>
 </div>
 
+<!-- ===== CORTE ===== -->
+<div class="screen" id="screen-corte">
+
+  <!-- Sub-tabs de corte -->
+  <div id="corte-subtabs" style="display:flex;overflow-x:auto;background:#fff;border-radius:12px;padding:4px;gap:4px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08);scrollbar-width:none;">
+    <button class="corte-tab active" onclick="mudarCorteTab('ct-cortes',this)">📋 Cortes</button>
+    <button class="corte-tab" onclick="mudarCorteTab('ct-estamparia',this)">🎨 Estamparia</button>
+    <button class="corte-tab" onclick="mudarCorteTab('ct-costureiro',this)">✂️ Costureiro</button>
+    <button class="corte-tab" onclick="mudarCorteTab('ct-financeiro',this)">💰 Financeiro</button>
+    <button class="corte-tab" onclick="mudarCorteTab('ct-estoque',this)">📦 Estoque</button>
+    <button class="corte-tab" onclick="mudarCorteTab('ct-config',this)">⚙️ Config</button>
+  </div>
+
+  <!-- SUB-TELA: CORTES -->
+  <div class="corte-panel active" id="ct-cortes">
+    <div id="ct-cortes-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <input style="flex:1;min-width:130px;padding:8px 12px;border:1.5px solid var(--border);border-radius:20px;font-size:.82rem;" type="text" placeholder="🔍 Buscar corte..." oninput="cfRenderCortes()" id="cf-busca-cortes">
+      <select style="padding:7px 10px;border:1.5px solid var(--border);border-radius:20px;font-size:.78rem;font-weight:600;" onchange="cfFiltroCorte=this.value;cfRenderCortes()">
+        <option value="todos">Todos</option>
+        <option value="em_corte">Em Corte</option>
+        <option value="estamparia">Estamparia</option>
+        <option value="costureiro">Costureiro</option>
+        <option value="finalizado">Finalizados</option>
+      </select>
+    </div>
+    <div id="cf-lista-cortes"></div>
+    <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="cfAbrirModalCorte()">➕ Novo Corte</button>
+  </div>
+
+  <!-- SUB-TELA: ESTAMPARIA -->
+  <div class="corte-panel" id="ct-estamparia">
+    <div id="ct-est-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <input style="flex:1;min-width:130px;padding:8px 12px;border:1.5px solid var(--border);border-radius:20px;font-size:.82rem;" type="text" placeholder="🔍 Buscar..." oninput="cfRenderEstamparia()" id="cf-busca-est">
+      <select style="padding:7px 10px;border:1.5px solid var(--border);border-radius:20px;font-size:.78rem;font-weight:600;" onchange="cfFiltroEst=this.value;cfRenderEstamparia()">
+        <option value="todos">Todos</option>
+        <option value="pendente">Aguardando</option>
+        <option value="ok">Devolvido</option>
+        <option value="a_pagar">A Pagar</option>
+      </select>
+    </div>
+    <div id="cf-lista-estamparia"></div>
+    <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="cfAbrirModalEst()">➕ Registrar Estamparia</button>
+  </div>
+
+  <!-- SUB-TELA: COSTUREIRO -->
+  <div class="corte-panel" id="ct-costureiro">
+    <div id="ct-cos-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <input style="flex:1;min-width:130px;padding:8px 12px;border:1.5px solid var(--border);border-radius:20px;font-size:.82rem;" type="text" placeholder="🔍 Buscar..." oninput="cfRenderCostureiro()" id="cf-busca-cos">
+      <select style="padding:7px 10px;border:1.5px solid var(--border);border-radius:20px;font-size:.78rem;font-weight:600;" onchange="cfFiltroCos=this.value;cfRenderCostureiro()">
+        <option value="todos">Todos</option>
+        <option value="pendente">Pendente</option>
+        <option value="pago">Pago</option>
+        <option value="a_pagar">A Pagar</option>
+      </select>
+    </div>
+    <div id="cf-lista-costureiro"></div>
+    <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="cfAbrirModalCos()">➕ Registrar Costureiro</button>
+  </div>
+
+  <!-- SUB-TELA: FINANCEIRO -->
+  <div class="corte-panel" id="ct-financeiro">
+    <div id="ct-fin-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;"></div>
+    <div class="section-title">Por Estamparia</div>
+    <div id="ct-fin-estamparia"></div>
+    <div class="section-title" style="margin-top:12px;">Por Costureiro</div>
+    <div id="ct-fin-costureiro"></div>
+    <div class="section-title" style="margin-top:12px;">Despesas da Empresa</div>
+    <div class="card" id="ct-fin-despesas"></div>
+    <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="cfAbrirModalDesp()">➕ Nova Despesa</button>
+  </div>
+
+  <!-- SUB-TELA: ESTOQUE -->
+  <div class="corte-panel" id="ct-estoque">
+    <div id="ct-estq-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;"></div>
+    <div class="section-title">Situação por Corte</div>
+    <div id="ct-lista-estoque"></div>
+  </div>
+
+  <!-- SUB-TELA: CONFIG -->
+  <div class="corte-panel" id="ct-config">
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:10px;">🎨 Estamparias</div>
+      <div id="ct-cfg-estamparias"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input class="form-input" id="ct-nova-estamparia" placeholder="Nome da estamparia" style="flex:1;">
+        <button class="btn btn-primary" onclick="cfAddEstamparia()">➕</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:10px;">✂️ Costureiros / Oficinas</div>
+      <div id="ct-cfg-costureiros"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input class="form-input" id="ct-novo-costureiro" placeholder="Nome do costureiro" style="flex:1;">
+        <button class="btn btn-primary" onclick="cfAddCostureiro()">➕</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:10px;">💰 Valores Padrão por Peça</div>
+      <label style="font-size:.8rem;font-weight:600;color:#374151;">Estamparia (R$/peça)</label>
+      <input type="number" step="0.01" id="ct-val-estamparia" placeholder="Ex: 1.50" style="margin-bottom:8px;">
+      <label style="font-size:.8rem;font-weight:600;color:#374151;">Costureiro (R$/peça)</label>
+      <input type="number" step="0.01" id="ct-val-costureiro" placeholder="Ex: 1.86" style="margin-bottom:8px;">
+      <button class="btn btn-primary" onclick="cfSalvarConfig()">💾 Salvar</button>
+    </div>
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:8px;">🗄️ Tabelas Supabase</div>
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px;">Para sincronizar cortes entre dispositivos, crie as tabelas no Supabase:</p>
+      <details>
+        <summary style="cursor:pointer;font-size:.82rem;color:var(--primary);font-weight:600;">Ver SQL</summary>
+        <pre style="background:#1f2937;color:#e5e7eb;padding:10px;border-radius:8px;font-size:.68rem;overflow-x:auto;margin-top:8px;line-height:1.5">CREATE TABLE cortes_fab (id text primary key, numero text, descricao text, quantidade int, data_corte date, obs text, created_at bigint);
+CREATE TABLE estamparia_fab (id text primary key, corte_id text, numero_corte text, descricao text, estamparia_nome text, data_envio date, entrega_total int, devolucao_total int, status text, valor_unit numeric, valor_total numeric, pago boolean default false, obs text, created_at bigint);
+CREATE TABLE costureiro_fab (id text primary key, corte_id text, numero_corte text, descricao text, oficina_nome text, data_envio date, quantidade int, parcial int, total int, devolucao_total int, status text, valor_unit numeric, valor_total numeric, valor_pago numeric default 0, obs text, created_at bigint);
+CREATE TABLE despesas_fab (id text primary key, data date, descricao text, valor numeric, responsavel text, created_at bigint);
+ALTER TABLE cortes_fab DISABLE ROW LEVEL SECURITY;
+ALTER TABLE estamparia_fab DISABLE ROW LEVEL SECURITY;
+ALTER TABLE costureiro_fab DISABLE ROW LEVEL SECURITY;
+ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
+      </details>
+      <div id="ct-supabase-status" style="font-size:.78rem;color:var(--muted);margin-top:8px;">Verificando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAIS CORTE -->
+<!-- Modal Novo Corte -->
+<div class="modal-bg" id="cf-modal-corte" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:460px;max-height:92vh;overflow-y:auto;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:800;font-size:1rem;" id="cf-modal-corte-title">Novo Corte</span>
+      <button onclick="cfFechar('cf-modal-corte')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted);">✕</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">N° Corte *</label><input id="cf-c-numero" placeholder="Ex: 45"></div>
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Data *</label><input type="date" id="cf-c-data"></div>
+      </div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Descrição *</label><input id="cf-c-descricao" placeholder="Ex: Básica, Regata..."></div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Quantidade (peças) *</label><input type="number" id="cf-c-quantidade" placeholder="Ex: 1456"></div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Observação</label><input id="cf-c-obs" placeholder="Opcional"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="cfFechar('cf-modal-corte')" class="btn btn-ghost">Cancelar</button>
+      <button onclick="cfSalvarCorte()" class="btn btn-primary">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Estamparia -->
+<div class="modal-bg" id="cf-modal-est" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:460px;max-height:92vh;overflow-y:auto;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:800;font-size:1rem;">Registrar Estamparia</span>
+      <button onclick="cfFechar('cf-modal-est')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted);">✕</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Corte *</label>
+          <select id="cf-e-corte"><option value="">Selecionar</option></select></div>
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Data Envio *</label><input type="date" id="cf-e-data"></div>
+      </div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Estamparia *</label>
+        <select id="cf-e-estamparia"><option value="">Selecionar</option></select></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Peças Enviadas *</label><input type="number" id="cf-e-entrega" oninput="cfCalcEstVal()"></div>
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Peças Devolvidas</label><input type="number" id="cf-e-devolucao" value="0"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Valor/Peça (R$)</label><input type="number" step="0.01" id="cf-e-vunit" oninput="cfCalcEstVal()"></div>
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Valor Total (R$)</label><input type="number" step="0.01" id="cf-e-vtotal"></div>
+      </div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Status</label>
+        <select id="cf-e-status"><option value="pendente">⏳ Pendente</option><option value="ok">✅ Devolvido</option></select></div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="cf-e-pago" style="width:18px;height:18px;">
+        <span style="font-size:.85rem;font-weight:600;">Pagamento efetuado</span>
+      </label>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Obs.</label><input id="cf-e-obs" placeholder="Opcional"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="cfFechar('cf-modal-est')" class="btn btn-ghost">Cancelar</button>
+      <button onclick="cfSalvarEst()" class="btn btn-primary">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Costureiro -->
+<div class="modal-bg" id="cf-modal-cos" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:460px;max-height:92vh;overflow-y:auto;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:800;font-size:1rem;">Registrar Costureiro</span>
+      <button onclick="cfFechar('cf-modal-cos')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted);">✕</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Corte *</label>
+          <select id="cf-cos-corte"><option value="">Selecionar</option></select></div>
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Data Envio *</label><input type="date" id="cf-cos-data"></div>
+      </div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Costureiro / Oficina *</label>
+        <select id="cf-cos-oficina"><option value="">Selecionar</option></select></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Peças Enviadas *</label><input type="number" id="cf-cos-qtd" oninput="cfCalcCosVal()"></div>
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Já Recebidas</label><input type="number" id="cf-cos-total" value="0"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Valor/Peça (R$)</label><input type="number" step="0.01" id="cf-cos-vunit" oninput="cfCalcCosVal()"></div>
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Valor Total (R$)</label><input type="number" step="0.01" id="cf-cos-vtotal"></div>
+      </div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Valor Já Pago (R$)</label><input type="number" step="0.01" id="cf-cos-vpago" value="0"></div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Status</label>
+        <select id="cf-cos-status"><option value="pendente">🕐 Pendente</option><option value="parcial">⚡ Parcial</option><option value="pago">✅ Pago</option></select></div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Obs.</label><input id="cf-cos-obs" placeholder="Opcional"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="cfFechar('cf-modal-cos')" class="btn btn-ghost">Cancelar</button>
+      <button onclick="cfSalvarCos()" class="btn btn-primary">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Despesa -->
+<div class="modal-bg" id="cf-modal-desp" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:460px;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:800;font-size:1rem;">Nova Despesa</span>
+      <button onclick="cfFechar('cf-modal-desp')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted);">✕</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Data *</label><input type="date" id="cf-d-data"></div>
+        <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Valor (R$) *</label><input type="number" step="0.01" id="cf-d-valor"></div>
+      </div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Descrição *</label><input id="cf-d-descricao" placeholder="Ex: Vale, Telefone..."></div>
+      <div><label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Responsável</label><input id="cf-d-responsavel" placeholder="Ex: Gerinaldo"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="cfFechar('cf-modal-desp')" class="btn btn-ghost">Cancelar</button>
+      <button onclick="cfSalvarDesp()" class="btn btn-primary">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- BOTTOM NAV -->
 <nav class="bottom-nav">
   <button class="nav-btn active" onclick="goScreen('dashboard',this)">
@@ -686,6 +961,10 @@
   <button class="nav-btn" onclick="goScreen('vendedores',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     Vendedores
+  </button>
+  <button class="nav-btn" onclick="goScreen('corte',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+    Corte
   </button>
 </nav>
 
@@ -797,6 +1076,7 @@ function goScreen(name, btn) {
   if (name === 'backup') { renderBackupInfo(); initSheets(); }
   if (name === 'venda') renderSelectProdutos();
   if (name === 'vendedores') { renderVendedoresTelaLista(); }
+  if (name === 'corte') { cfRenderCortes(); cfRenderEstamparia(); cfRenderCostureiro(); cfRenderFinanceiro(); cfRenderEstoque(); cfRenderConfig(); }
 }
 
 // ---- TOPBAR ----
@@ -2022,6 +2302,559 @@ function renderVendedoresTelaLista() {
       </div>
     </div>
   `).join('');
+}
+
+// ==============================
+// CONTROLE DE CORTE (FÁBRICA)
+// ==============================
+
+// --- Dados ---
+let cf_cortes    = JSON.parse(localStorage.getItem('cf_cortes')    || '[]');
+let cf_estamparia= JSON.parse(localStorage.getItem('cf_estamparia')|| '[]');
+let cf_costureiro= JSON.parse(localStorage.getItem('cf_costureiro')|| '[]');
+let cf_despesas  = JSON.parse(localStorage.getItem('cf_despesas')  || '[]');
+let cf_config    = JSON.parse(localStorage.getItem('cf_config')    || JSON.stringify({
+  estamparias: ['JOELMA','JOSE','ROBERLANIO'],
+  costureiros: ['MILENA','PATRICIO','NINO','IPANEMA'],
+  val_estamparia: 1.50,
+  val_costureiro: 1.86
+}));
+
+let cfFiltroCorte = 'todos';
+let cfFiltroEst   = 'todos';
+let cfFiltroCos   = 'todos';
+let cfEditandoCorteId = null;
+let cfEditandoEstId   = null;
+let cfEditandoCosId   = null;
+
+function cfSalvar(key, arr) { localStorage.setItem(key, JSON.stringify(arr)); }
+function cfId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function cfHoje() { return new Date().toISOString().slice(0,10); }
+function cfFmt(v) { return 'R$ ' + parseFloat(v||0).toFixed(2).replace('.',','); }
+function cfFechar(id) { document.getElementById(id).style.display = 'none'; cfEditandoCorteId = null; cfEditandoEstId = null; cfEditandoCosId = null; }
+
+// Sub-tab navigation
+function mudarCorteTab(panelId, btn) {
+  document.querySelectorAll('.corte-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.corte-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById(panelId).classList.add('active');
+  btn.classList.add('active');
+}
+
+// --- STATUS DO CORTE ---
+function cfStatusCorte(corte) {
+  const ests = cf_estamparia.filter(e => e.corte_id === corte.id);
+  const coss = cf_costureiro.filter(c => c.corte_id === corte.id);
+  if (ests.length === 0 && coss.length === 0) return {label:'Em Corte', cls:'cf-badge-warn'};
+  const todaEst = ests.every(e => e.status === 'ok');
+  const todaCos = coss.every(c => c.status === 'pago');
+  if (coss.length > 0 && todaCos) return {label:'Finalizado', cls:'cf-badge-ok'};
+  if (ests.length > 0 && todaEst && coss.length === 0) return {label:'Estamparia OK', cls:'cf-badge-blue'};
+  if (coss.length > 0) return {label:'Costureiro', cls:'cf-badge-blue'};
+  if (ests.length > 0) return {label:'Estamparia', cls:'cf-badge-warn'};
+  return {label:'Em Corte', cls:'cf-badge-warn'};
+}
+
+// --- RENDER CORTES ---
+function cfRenderCortes() {
+  const busca = (document.getElementById('cf-busca-cortes')?.value||'').toLowerCase();
+  let lista = cf_cortes.filter(c => {
+    const st = cfStatusCorte(c).label.toLowerCase();
+    if (cfFiltroCorte === 'em_corte' && !st.includes('corte')) return false;
+    if (cfFiltroCorte === 'estamparia' && !st.includes('estamparia')) return false;
+    if (cfFiltroCorte === 'costureiro' && !st.includes('costureiro')) return false;
+    if (cfFiltroCorte === 'finalizado' && !st.includes('finalizado')) return false;
+    if (busca && !c.numero?.toLowerCase().includes(busca) && !c.descricao?.toLowerCase().includes(busca)) return false;
+    return true;
+  }).sort((a,b) => parseInt(b.numero||0) - parseInt(a.numero||0));
+
+  // stats
+  const total = cf_cortes.length;
+  const finalizados = cf_cortes.filter(c => cfStatusCorte(c).label === 'Finalizado').length;
+  const em_andamento = total - finalizados;
+  document.getElementById('ct-cortes-stats').innerHTML = `
+    <div class="cf-stat"><div class="label">Total Cortes</div><div class="val">${total}</div></div>
+    <div class="cf-stat"><div class="label">Em Andamento</div><div class="val" style="color:var(--primary)">${em_andamento}</div></div>
+  `;
+
+  const el = document.getElementById('cf-lista-cortes');
+  if (!lista.length) { el.innerHTML = '<p style="text-align:center;color:var(--muted);padding:20px;">Nenhum corte encontrado.</p>'; return; }
+
+  el.innerHTML = lista.map(c => {
+    const st = cfStatusCorte(c);
+    const ests = cf_estamparia.filter(e => e.corte_id === c.id);
+    const coss = cf_costureiro.filter(x => x.corte_id === c.id);
+    const pcsEst = ests.reduce((s,e) => s + (e.entrega_total||0), 0);
+    const pcsDevEst = ests.reduce((s,e) => s + (e.devolucao_total||0), 0);
+    const pcsCos = coss.reduce((s,x) => s + (x.total||0), 0);
+    const progEst = pcsEst ? Math.round(pcsDevEst/pcsEst*100) : 0;
+    const progCos = c.quantidade ? Math.round(pcsCos/c.quantidade*100) : 0;
+    return `<div class="cf-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <span style="font-weight:900;font-size:1rem;">Corte #${c.numero}</span>
+          <span style="font-size:.78rem;color:var(--muted);margin-left:6px;">${c.data_corte||''}</span>
+        </div>
+        <span class="cf-badge ${st.cls}">${st.label}</span>
+      </div>
+      <div style="font-weight:700;color:#374151;margin-bottom:4px;">${c.descricao||''}</div>
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px;">📦 ${c.quantidade||0} peças${c.obs?' · '+c.obs:''}</div>
+      ${ests.length ? `<div style="font-size:.75rem;color:#6b7280;margin-bottom:2px;">🎨 Estamparia: ${pcsDevEst}/${pcsEst} devolvidas</div>
+      <div class="cf-progress"><div class="cf-progress-bar" style="width:${progEst}%"></div></div>` : ''}
+      ${coss.length ? `<div style="font-size:.75rem;color:#6b7280;margin-top:4px;margin-bottom:2px;">✂️ Costureiro: ${pcsCos}/${c.quantidade} prontas</div>
+      <div class="cf-progress"><div class="cf-progress-bar" style="width:${progCos}%;background:#10b981"></div></div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button onclick="cfEditarCorte('${c.id}')" style="flex:1;padding:7px;border:1.5px solid var(--border);border-radius:8px;background:transparent;font-size:.8rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
+        <button onclick="cfExcluirCorte('${c.id}')" style="padding:7px 12px;border:1.5px solid #fee2e2;border-radius:8px;background:transparent;font-size:.8rem;color:var(--danger);cursor:pointer;">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// --- CRUD CORTES ---
+function cfAbrirModalCorte() {
+  cfEditandoCorteId = null;
+  document.getElementById('cf-modal-corte-title').textContent = 'Novo Corte';
+  document.getElementById('cf-c-numero').value = '';
+  document.getElementById('cf-c-data').value = cfHoje();
+  document.getElementById('cf-c-descricao').value = '';
+  document.getElementById('cf-c-quantidade').value = '';
+  document.getElementById('cf-c-obs').value = '';
+  document.getElementById('cf-modal-corte').style.display = 'flex';
+}
+function cfEditarCorte(id) {
+  const c = cf_cortes.find(x => x.id === id); if (!c) return;
+  cfEditandoCorteId = id;
+  document.getElementById('cf-modal-corte-title').textContent = 'Editar Corte';
+  document.getElementById('cf-c-numero').value = c.numero||'';
+  document.getElementById('cf-c-data').value = c.data_corte||'';
+  document.getElementById('cf-c-descricao').value = c.descricao||'';
+  document.getElementById('cf-c-quantidade').value = c.quantidade||'';
+  document.getElementById('cf-c-obs').value = c.obs||'';
+  document.getElementById('cf-modal-corte').style.display = 'flex';
+}
+function cfSalvarCorte() {
+  const numero = document.getElementById('cf-c-numero').value.trim();
+  const data   = document.getElementById('cf-c-data').value;
+  const desc   = document.getElementById('cf-c-descricao').value.trim();
+  const qtd    = parseInt(document.getElementById('cf-c-quantidade').value)||0;
+  const obs    = document.getElementById('cf-c-obs').value.trim();
+  if (!numero || !desc || !qtd) { alert('Preencha N° Corte, Descrição e Quantidade.'); return; }
+  if (cfEditandoCorteId) {
+    const idx = cf_cortes.findIndex(x => x.id === cfEditandoCorteId);
+    cf_cortes[idx] = { ...cf_cortes[idx], numero, data_corte: data, descricao: desc, quantidade: qtd, obs };
+  } else {
+    cf_cortes.push({ id: cfId(), numero, data_corte: data, descricao: desc, quantidade: qtd, obs, created_at: Date.now() });
+  }
+  cfSalvar('cf_cortes', cf_cortes);
+  cfFechar('cf-modal-corte');
+  cfRenderCortes();
+  cfPopulateCorteSelects();
+}
+function cfExcluirCorte(id) {
+  if (!confirm('Excluir este corte? Os registros de estamparia e costureiro deste corte também serão removidos.')) return;
+  cf_cortes = cf_cortes.filter(x => x.id !== id);
+  cf_estamparia = cf_estamparia.filter(x => x.corte_id !== id);
+  cf_costureiro = cf_costureiro.filter(x => x.corte_id !== id);
+  cfSalvar('cf_cortes', cf_cortes);
+  cfSalvar('cf_estamparia', cf_estamparia);
+  cfSalvar('cf_costureiro', cf_costureiro);
+  cfRenderCortes();
+}
+
+// --- POPULATE SELECTS ---
+function cfPopulateCorteSelects() {
+  const opts = '<option value="">Selecionar</option>' + cf_cortes.sort((a,b)=>parseInt(b.numero||0)-parseInt(a.numero||0)).map(c => `<option value="${c.id}">#${c.numero} - ${c.descricao}</option>`).join('');
+  ['cf-e-corte','cf-cos-corte'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = opts; });
+  const estOpts = '<option value="">Selecionar</option>' + cf_config.estamparias.map(e => `<option>${e}</option>`).join('');
+  const cosOpts = '<option value="">Selecionar</option>' + cf_config.costureiros.map(c => `<option>${c}</option>`).join('');
+  const ee = document.getElementById('cf-e-estamparia'); if(ee) ee.innerHTML = estOpts;
+  const co = document.getElementById('cf-cos-oficina'); if(co) co.innerHTML = cosOpts;
+}
+
+// --- ESTAMPARIA ---
+function cfAbrirModalEst() {
+  cfEditandoEstId = null;
+  cfPopulateCorteSelects();
+  document.getElementById('cf-e-data').value = cfHoje();
+  document.getElementById('cf-e-entrega').value = '';
+  document.getElementById('cf-e-devolucao').value = '0';
+  document.getElementById('cf-e-vunit').value = cf_config.val_estamparia;
+  document.getElementById('cf-e-vtotal').value = '';
+  document.getElementById('cf-e-status').value = 'pendente';
+  document.getElementById('cf-e-pago').checked = false;
+  document.getElementById('cf-e-obs').value = '';
+  document.getElementById('cf-modal-est').style.display = 'flex';
+}
+function cfCalcEstVal() {
+  const q = parseFloat(document.getElementById('cf-e-entrega').value)||0;
+  const v = parseFloat(document.getElementById('cf-e-vunit').value)||0;
+  if (q && v) document.getElementById('cf-e-vtotal').value = (q*v).toFixed(2);
+}
+function cfSalvarEst() {
+  const corte_id = document.getElementById('cf-e-corte').value;
+  const est_nome = document.getElementById('cf-e-estamparia').value;
+  const data     = document.getElementById('cf-e-data').value;
+  const entrega  = parseInt(document.getElementById('cf-e-entrega').value)||0;
+  const devol    = parseInt(document.getElementById('cf-e-devolucao').value)||0;
+  const vunit    = parseFloat(document.getElementById('cf-e-vunit').value)||0;
+  const vtotal   = parseFloat(document.getElementById('cf-e-vtotal').value)||0;
+  const status   = document.getElementById('cf-e-status').value;
+  const pago     = document.getElementById('cf-e-pago').checked;
+  const obs      = document.getElementById('cf-e-obs').value.trim();
+  if (!corte_id || !est_nome || !entrega) { alert('Selecione o corte, a estamparia e a quantidade.'); return; }
+  const corte = cf_cortes.find(c => c.id === corte_id);
+  const reg = { corte_id, numero_corte: corte?.numero||'', descricao: corte?.descricao||'', estamparia_nome: est_nome, data_envio: data, entrega_total: entrega, devolucao_total: devol, status, valor_unit: vunit, valor_total: vtotal, pago, obs };
+  if (cfEditandoEstId) {
+    const idx = cf_estamparia.findIndex(x => x.id === cfEditandoEstId);
+    cf_estamparia[idx] = { ...cf_estamparia[idx], ...reg };
+  } else {
+    cf_estamparia.push({ id: cfId(), ...reg, created_at: Date.now() });
+  }
+  cfSalvar('cf_estamparia', cf_estamparia);
+  cfFechar('cf-modal-est');
+  cfRenderEstamparia();
+  cfRenderCortes();
+}
+function cfRenderEstamparia() {
+  const busca = (document.getElementById('cf-busca-est')?.value||'').toLowerCase();
+  let lista = cf_estamparia.filter(e => {
+    if (cfFiltroEst === 'pendente' && e.status !== 'pendente') return false;
+    if (cfFiltroEst === 'ok' && e.status !== 'ok') return false;
+    if (cfFiltroEst === 'a_pagar' && (e.pago || e.valor_total <= 0)) return false;
+    if (busca && !e.numero_corte?.toLowerCase().includes(busca) && !e.estamparia_nome?.toLowerCase().includes(busca) && !e.descricao?.toLowerCase().includes(busca)) return false;
+    return true;
+  }).sort((a,b) => parseInt(b.numero_corte||0) - parseInt(a.numero_corte||0));
+
+  const totalEnv = cf_estamparia.reduce((s,e) => s+(e.entrega_total||0), 0);
+  const totalDev = cf_estamparia.reduce((s,e) => s+(e.devolucao_total||0), 0);
+  const totalVal = cf_estamparia.filter(e=>!e.pago).reduce((s,e)=>s+(e.valor_total||0),0);
+  document.getElementById('ct-est-stats').innerHTML = `
+    <div class="cf-stat"><div class="label">Enviadas</div><div class="val">${totalEnv}</div></div>
+    <div class="cf-stat"><div class="label">A Pagar</div><div class="val" style="color:var(--danger)">${cfFmt(totalVal)}</div></div>
+  `;
+
+  const el = document.getElementById('cf-lista-estamparia');
+  if (!lista.length) { el.innerHTML = '<p style="text-align:center;color:var(--muted);padding:20px;">Nenhum registro.</p>'; return; }
+  el.innerHTML = lista.map(e => {
+    const stCls = e.status === 'ok' ? 'cf-badge-ok' : 'cf-badge-warn';
+    const pgCls = e.pago ? 'cf-badge-ok' : 'cf-badge-red';
+    return `<div class="cf-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div><span style="font-weight:900;">Corte #${e.numero_corte}</span> <span style="font-size:.78rem;color:var(--muted);">· ${e.descricao||''}</span></div>
+        <span class="cf-badge ${stCls}">${e.status==='ok'?'✅ Devolvido':'⏳ Pendente'}</span>
+      </div>
+      <div style="font-weight:700;margin-bottom:4px;">🎨 ${e.estamparia_nome}</div>
+      <div style="font-size:.8rem;color:var(--muted);">Enviadas: ${e.entrega_total||0} · Devolvidas: ${e.devolucao_total||0} · ${e.data_envio||''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+        <span style="font-weight:800;font-size:.95rem;">${cfFmt(e.valor_total)}</span>
+        <span class="cf-badge ${pgCls}">${e.pago?'💰 Pago':'⚠️ A Pagar'}</span>
+      </div>
+      ${e.obs?`<div style="font-size:.78rem;color:var(--muted);margin-top:4px;">${e.obs}</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button onclick="cfEditarEst('${e.id}')" style="flex:1;padding:7px;border:1.5px solid var(--border);border-radius:8px;background:transparent;font-size:.8rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
+        <button onclick="cfTogglePagoEst('${e.id}')" style="flex:1;padding:7px;border:1.5px solid ${e.pago?'#d1fae5':'#fee2e2'};border-radius:8px;background:transparent;font-size:.8rem;font-weight:700;cursor:pointer;color:${e.pago?'#065f46':'#991b1b'}">${e.pago?'↩ Desfazer Pago':'✅ Marcar Pago'}</button>
+        <button onclick="cfExcluirEst('${e.id}')" style="padding:7px 12px;border:1.5px solid #fee2e2;border-radius:8px;background:transparent;font-size:.8rem;color:var(--danger);cursor:pointer;">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function cfEditarEst(id) {
+  const e = cf_estamparia.find(x => x.id === id); if (!e) return;
+  cfEditandoEstId = id;
+  cfPopulateCorteSelects();
+  setTimeout(() => {
+    document.getElementById('cf-e-corte').value = e.corte_id;
+    document.getElementById('cf-e-estamparia').value = e.estamparia_nome;
+    document.getElementById('cf-e-data').value = e.data_envio||'';
+    document.getElementById('cf-e-entrega').value = e.entrega_total||'';
+    document.getElementById('cf-e-devolucao').value = e.devolucao_total||'';
+    document.getElementById('cf-e-vunit').value = e.valor_unit||'';
+    document.getElementById('cf-e-vtotal').value = e.valor_total||'';
+    document.getElementById('cf-e-status').value = e.status||'pendente';
+    document.getElementById('cf-e-pago').checked = e.pago||false;
+    document.getElementById('cf-e-obs').value = e.obs||'';
+  }, 50);
+  document.getElementById('cf-modal-est').style.display = 'flex';
+}
+function cfTogglePagoEst(id) {
+  const idx = cf_estamparia.findIndex(x => x.id === id);
+  cf_estamparia[idx].pago = !cf_estamparia[idx].pago;
+  cfSalvar('cf_estamparia', cf_estamparia);
+  cfRenderEstamparia();
+  cfRenderFinanceiro();
+}
+function cfExcluirEst(id) {
+  if (!confirm('Excluir este registro de estamparia?')) return;
+  cf_estamparia = cf_estamparia.filter(x => x.id !== id);
+  cfSalvar('cf_estamparia', cf_estamparia);
+  cfRenderEstamparia();
+}
+
+// --- COSTUREIRO ---
+function cfAbrirModalCos() {
+  cfEditandoCosId = null;
+  cfPopulateCorteSelects();
+  document.getElementById('cf-cos-data').value = cfHoje();
+  document.getElementById('cf-cos-qtd').value = '';
+  document.getElementById('cf-cos-total').value = '0';
+  document.getElementById('cf-cos-vunit').value = cf_config.val_costureiro;
+  document.getElementById('cf-cos-vtotal').value = '';
+  document.getElementById('cf-cos-vpago').value = '0';
+  document.getElementById('cf-cos-status').value = 'pendente';
+  document.getElementById('cf-cos-obs').value = '';
+  document.getElementById('cf-modal-cos').style.display = 'flex';
+}
+function cfCalcCosVal() {
+  const q = parseFloat(document.getElementById('cf-cos-qtd').value)||0;
+  const v = parseFloat(document.getElementById('cf-cos-vunit').value)||0;
+  if (q && v) document.getElementById('cf-cos-vtotal').value = (q*v).toFixed(2);
+}
+function cfSalvarCos() {
+  const corte_id = document.getElementById('cf-cos-corte').value;
+  const oficina  = document.getElementById('cf-cos-oficina').value;
+  const data     = document.getElementById('cf-cos-data').value;
+  const qtd      = parseInt(document.getElementById('cf-cos-qtd').value)||0;
+  const total    = parseInt(document.getElementById('cf-cos-total').value)||0;
+  const vunit    = parseFloat(document.getElementById('cf-cos-vunit').value)||0;
+  const vtotal   = parseFloat(document.getElementById('cf-cos-vtotal').value)||0;
+  const vpago    = parseFloat(document.getElementById('cf-cos-vpago').value)||0;
+  const status   = document.getElementById('cf-cos-status').value;
+  const obs      = document.getElementById('cf-cos-obs').value.trim();
+  if (!corte_id || !oficina || !qtd) { alert('Selecione o corte, o costureiro e a quantidade.'); return; }
+  const corte = cf_cortes.find(c => c.id === corte_id);
+  const reg = { corte_id, numero_corte: corte?.numero||'', descricao: corte?.descricao||'', oficina_nome: oficina, data_envio: data, quantidade: qtd, total, valor_unit: vunit, valor_total: vtotal, valor_pago: vpago, status, obs };
+  if (cfEditandoCosId) {
+    const idx = cf_costureiro.findIndex(x => x.id === cfEditandoCosId);
+    cf_costureiro[idx] = { ...cf_costureiro[idx], ...reg };
+  } else {
+    cf_costureiro.push({ id: cfId(), ...reg, created_at: Date.now() });
+  }
+  cfSalvar('cf_costureiro', cf_costureiro);
+  cfFechar('cf-modal-cos');
+  cfRenderCostureiro();
+  cfRenderCortes();
+}
+function cfRenderCostureiro() {
+  const busca = (document.getElementById('cf-busca-cos')?.value||'').toLowerCase();
+  let lista = cf_costureiro.filter(c => {
+    if (cfFiltroCos === 'pendente' && c.status !== 'pendente') return false;
+    if (cfFiltroCos === 'pago' && c.status !== 'pago') return false;
+    if (cfFiltroCos === 'a_pagar' && (c.status === 'pago' || (c.valor_total||0) <= (c.valor_pago||0))) return false;
+    if (busca && !c.numero_corte?.toLowerCase().includes(busca) && !c.oficina_nome?.toLowerCase().includes(busca) && !c.descricao?.toLowerCase().includes(busca)) return false;
+    return true;
+  }).sort((a,b) => parseInt(b.numero_corte||0) - parseInt(a.numero_corte||0));
+
+  const totalEnv = cf_costureiro.reduce((s,c)=>s+(c.quantidade||0),0);
+  const totalPronto = cf_costureiro.reduce((s,c)=>s+(c.total||0),0);
+  const totalAPagar = cf_costureiro.reduce((s,c)=>s+Math.max(0,(c.valor_total||0)-(c.valor_pago||0)),0);
+  document.getElementById('ct-cos-stats').innerHTML = `
+    <div class="cf-stat"><div class="label">Enviadas</div><div class="val">${totalEnv}</div></div>
+    <div class="cf-stat"><div class="label">A Pagar</div><div class="val" style="color:var(--danger)">${cfFmt(totalAPagar)}</div></div>
+  `;
+
+  const el = document.getElementById('cf-lista-costureiro');
+  if (!lista.length) { el.innerHTML = '<p style="text-align:center;color:var(--muted);padding:20px;">Nenhum registro.</p>'; return; }
+  el.innerHTML = lista.map(c => {
+    const resto = Math.max(0,(c.valor_total||0)-(c.valor_pago||0));
+    const stMap = { pago:'cf-badge-ok', parcial:'cf-badge-blue', pendente:'cf-badge-warn' };
+    const stLbl = { pago:'✅ Pago', parcial:'⚡ Parcial', pendente:'⏳ Pendente' };
+    return `<div class="cf-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div><span style="font-weight:900;">Corte #${c.numero_corte}</span> <span style="font-size:.78rem;color:var(--muted);">· ${c.descricao||''}</span></div>
+        <span class="cf-badge ${stMap[c.status]||'cf-badge-gray'}">${stLbl[c.status]||c.status}</span>
+      </div>
+      <div style="font-weight:700;margin-bottom:4px;">✂️ ${c.oficina_nome}</div>
+      <div style="font-size:.8rem;color:var(--muted);">Enviadas: ${c.quantidade||0} · Prontas: ${c.total||0} · ${c.data_envio||''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+        <span style="font-weight:800;font-size:.95rem;">${cfFmt(c.valor_total)}</span>
+        ${resto > 0 ? `<span class="cf-badge cf-badge-red">Falta ${cfFmt(resto)}</span>` : '<span class="cf-badge cf-badge-ok">Quitado</span>'}
+      </div>
+      ${c.obs?`<div style="font-size:.78rem;color:var(--muted);margin-top:4px;">${c.obs}</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button onclick="cfEditarCos('${c.id}')" style="flex:1;padding:7px;border:1.5px solid var(--border);border-radius:8px;background:transparent;font-size:.8rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
+        <button onclick="cfExcluirCos('${c.id}')" style="padding:7px 12px;border:1.5px solid #fee2e2;border-radius:8px;background:transparent;font-size:.8rem;color:var(--danger);cursor:pointer;">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function cfEditarCos(id) {
+  const c = cf_costureiro.find(x => x.id === id); if (!c) return;
+  cfEditandoCosId = id;
+  cfPopulateCorteSelects();
+  setTimeout(() => {
+    document.getElementById('cf-cos-corte').value = c.corte_id;
+    document.getElementById('cf-cos-oficina').value = c.oficina_nome;
+    document.getElementById('cf-cos-data').value = c.data_envio||'';
+    document.getElementById('cf-cos-qtd').value = c.quantidade||'';
+    document.getElementById('cf-cos-total').value = c.total||'';
+    document.getElementById('cf-cos-vunit').value = c.valor_unit||'';
+    document.getElementById('cf-cos-vtotal').value = c.valor_total||'';
+    document.getElementById('cf-cos-vpago').value = c.valor_pago||'';
+    document.getElementById('cf-cos-status').value = c.status||'pendente';
+    document.getElementById('cf-cos-obs').value = c.obs||'';
+  }, 50);
+  document.getElementById('cf-modal-cos').style.display = 'flex';
+}
+function cfExcluirCos(id) {
+  if (!confirm('Excluir este registro de costureiro?')) return;
+  cf_costureiro = cf_costureiro.filter(x => x.id !== id);
+  cfSalvar('cf_costureiro', cf_costureiro);
+  cfRenderCostureiro();
+}
+
+// --- FINANCEIRO ---
+function cfRenderFinanceiro() {
+  const totalEstPagar = cf_estamparia.filter(e=>!e.pago).reduce((s,e)=>s+(e.valor_total||0),0);
+  const totalCosPagar = cf_costureiro.reduce((s,c)=>s+Math.max(0,(c.valor_total||0)-(c.valor_pago||0)),0);
+  const totalDesp     = cf_despesas.reduce((s,d)=>s+(d.valor||0),0);
+  document.getElementById('ct-fin-stats').innerHTML = `
+    <div class="cf-stat"><div class="label">Estamparia a Pagar</div><div class="val" style="color:var(--danger)">${cfFmt(totalEstPagar)}</div></div>
+    <div class="cf-stat"><div class="label">Costureiro a Pagar</div><div class="val" style="color:var(--danger)">${cfFmt(totalCosPagar)}</div></div>
+  `;
+
+  // por estamparia
+  const byEst = {};
+  cf_estamparia.forEach(e => {
+    if (!byEst[e.estamparia_nome]) byEst[e.estamparia_nome] = { total: 0, pago: 0, pecas: 0 };
+    byEst[e.estamparia_nome].total += e.valor_total||0;
+    if (e.pago) byEst[e.estamparia_nome].pago += e.valor_total||0;
+    byEst[e.estamparia_nome].pecas += e.entrega_total||0;
+  });
+  document.getElementById('ct-fin-estamparia').innerHTML = Object.entries(byEst).map(([nome,v]) => `
+    <div class="cf-card" style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">🎨 ${nome}</span><span style="font-size:.8rem;color:var(--muted);">${v.pecas} peças</span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;">
+        <span style="font-size:.85rem;">Total: <b>${cfFmt(v.total)}</b></span>
+        <span style="font-size:.85rem;color:${v.total-v.pago>0?'var(--danger)':'var(--success)'};">Falta: <b>${cfFmt(v.total-v.pago)}</b></span>
+      </div>
+    </div>`).join('') || '<p style="color:var(--muted);font-size:.85rem;">Nenhum registro.</p>';
+
+  // por costureiro
+  const byCos = {};
+  cf_costureiro.forEach(c => {
+    if (!byCos[c.oficina_nome]) byCos[c.oficina_nome] = { total: 0, pago: 0, pecas: 0 };
+    byCos[c.oficina_nome].total += c.valor_total||0;
+    byCos[c.oficina_nome].pago += c.valor_pago||0;
+    byCos[c.oficina_nome].pecas += c.quantidade||0;
+  });
+  document.getElementById('ct-fin-costureiro').innerHTML = Object.entries(byCos).map(([nome,v]) => `
+    <div class="cf-card" style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">✂️ ${nome}</span><span style="font-size:.8rem;color:var(--muted);">${v.pecas} peças</span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;">
+        <span style="font-size:.85rem;">Total: <b>${cfFmt(v.total)}</b></span>
+        <span style="font-size:.85rem;color:${v.total-v.pago>0?'var(--danger)':'var(--success)'};">Falta: <b>${cfFmt(v.total-v.pago)}</b></span>
+      </div>
+    </div>`).join('') || '<p style="color:var(--muted);font-size:.85rem;">Nenhum registro.</p>';
+
+  // despesas
+  const elDesp = document.getElementById('ct-fin-despesas');
+  elDesp.innerHTML = cf_despesas.length === 0 ? '<p style="color:var(--muted);font-size:.85rem;text-align:center;">Sem despesas registradas.</p>' :
+    `<div style="font-weight:800;margin-bottom:8px;">Total: ${cfFmt(totalDesp)}</div>` +
+    cf_despesas.sort((a,b)=>b.created_at-a.created_at).map(d => `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.85rem;">
+        <span>${d.data||''} · ${d.descricao}${d.responsavel?' ('+d.responsavel+')':''}</span>
+        <div style="display:flex;align-items:center;gap:8px;"><b>${cfFmt(d.valor)}</b><button onclick="cfExcluirDesp('${d.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.8rem;">🗑️</button></div>
+      </div>`).join('');
+}
+
+function cfAbrirModalDesp() {
+  document.getElementById('cf-d-data').value = cfHoje();
+  document.getElementById('cf-d-valor').value = '';
+  document.getElementById('cf-d-descricao').value = '';
+  document.getElementById('cf-d-responsavel').value = '';
+  document.getElementById('cf-modal-desp').style.display = 'flex';
+}
+function cfSalvarDesp() {
+  const data  = document.getElementById('cf-d-data').value;
+  const valor = parseFloat(document.getElementById('cf-d-valor').value)||0;
+  const desc  = document.getElementById('cf-d-descricao').value.trim();
+  const resp  = document.getElementById('cf-d-responsavel').value.trim();
+  if (!desc || !valor) { alert('Preencha descrição e valor.'); return; }
+  cf_despesas.push({ id: cfId(), data, descricao: desc, valor, responsavel: resp, created_at: Date.now() });
+  cfSalvar('cf_despesas', cf_despesas);
+  cfFechar('cf-modal-desp');
+  cfRenderFinanceiro();
+}
+function cfExcluirDesp(id) {
+  if (!confirm('Excluir esta despesa?')) return;
+  cf_despesas = cf_despesas.filter(x => x.id !== id);
+  cfSalvar('cf_despesas', cf_despesas);
+  cfRenderFinanceiro();
+}
+
+// --- ESTOQUE ---
+function cfRenderEstoque() {
+  const totalPecas = cf_cortes.reduce((s,c)=>s+(c.quantidade||0),0);
+  const totalProntoCos = cf_costureiro.reduce((s,c)=>s+(c.total||0),0);
+  document.getElementById('ct-estq-stats').innerHTML = `
+    <div class="cf-stat"><div class="label">Total em Corte</div><div class="val">${totalPecas}</div></div>
+    <div class="cf-stat"><div class="label">Prontas p/ Estoque</div><div class="val" style="color:var(--success)">${totalProntoCos}</div></div>
+  `;
+
+  const el = document.getElementById('ct-lista-estoque');
+  if (!cf_cortes.length) { el.innerHTML = '<p style="text-align:center;color:var(--muted);padding:20px;">Nenhum corte cadastrado.</p>'; return; }
+  el.innerHTML = cf_cortes.sort((a,b)=>parseInt(b.numero||0)-parseInt(a.numero||0)).map(c => {
+    const ests = cf_estamparia.filter(e=>e.corte_id===c.id);
+    const coss = cf_costureiro.filter(x=>x.corte_id===c.id);
+    const enviEst = ests.reduce((s,e)=>s+(e.entrega_total||0),0);
+    const devEst  = ests.reduce((s,e)=>s+(e.devolucao_total||0),0);
+    const enviCos = coss.reduce((s,x)=>s+(x.quantidade||0),0);
+    const prontoCos = coss.reduce((s,x)=>s+(x.total||0),0);
+    const st = cfStatusCorte(c);
+    return `<div class="cf-card">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-weight:900;">Corte #${c.numero} · ${c.descricao}</span>
+        <span class="cf-badge ${st.cls}">${st.label}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;font-size:.8rem;">
+        <div style="background:#f9fafb;border-radius:8px;padding:8px;"><div style="font-weight:700;font-size:1rem;">${c.quantidade||0}</div><div style="color:var(--muted);">Cortadas</div></div>
+        <div style="background:#f9fafb;border-radius:8px;padding:8px;"><div style="font-weight:700;font-size:1rem;">${enviCos}</div><div style="color:var(--muted);">No Cost.</div></div>
+        <div style="background:#f0fdf4;border-radius:8px;padding:8px;"><div style="font-weight:700;font-size:1rem;color:#059669;">${prontoCos}</div><div style="color:var(--muted);">Prontas</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// --- CONFIG ---
+function cfRenderConfig() {
+  document.getElementById('ct-cfg-estamparias').innerHTML = cf_config.estamparias.map((e,i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:.88rem;font-weight:600;">${e}</span>
+      <button onclick="cfRemoverEst(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;">✕</button>
+    </div>`).join('') || '<p style="font-size:.8rem;color:var(--muted);">Nenhuma cadastrada.</p>';
+  document.getElementById('ct-cfg-costureiros').innerHTML = cf_config.costureiros.map((c,i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:.88rem;font-weight:600;">${c}</span>
+      <button onclick="cfRemoverCos(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;">✕</button>
+    </div>`).join('') || '<p style="font-size:.8rem;color:var(--muted);">Nenhum cadastrado.</p>';
+  document.getElementById('ct-val-estamparia').value = cf_config.val_estamparia||1.50;
+  document.getElementById('ct-val-costureiro').value = cf_config.val_costureiro||1.86;
+  document.getElementById('ct-supabase-status').textContent = 'Verificação disponível apenas com tabelas criadas.';
+}
+function cfAddEstamparia() {
+  const v = document.getElementById('ct-nova-estamparia').value.trim().toUpperCase(); if (!v) return;
+  if (!cf_config.estamparias.includes(v)) { cf_config.estamparias.push(v); cfSalvar('cf_config', cf_config); }
+  document.getElementById('ct-nova-estamparia').value = '';
+  cfRenderConfig();
+}
+function cfRemoverEst(i) {
+  cf_config.estamparias.splice(i,1); cfSalvar('cf_config', cf_config); cfRenderConfig();
+}
+function cfAddCostureiro() {
+  const v = document.getElementById('ct-novo-costureiro').value.trim().toUpperCase(); if (!v) return;
+  if (!cf_config.costureiros.includes(v)) { cf_config.costureiros.push(v); cfSalvar('cf_config', cf_config); }
+  document.getElementById('ct-novo-costureiro').value = '';
+  cfRenderConfig();
+}
+function cfRemoverCos(i) {
+  cf_config.costureiros.splice(i,1); cfSalvar('cf_config', cf_config); cfRenderConfig();
+}
+function cfSalvarConfig() {
+  cf_config.val_estamparia = parseFloat(document.getElementById('ct-val-estamparia').value)||1.50;
+  cf_config.val_costureiro = parseFloat(document.getElementById('ct-val-costureiro').value)||1.86;
+  cfSalvar('cf_config', cf_config);
+  alert('Configurações salvas!');
 }
 
 // ---- INIT ----
