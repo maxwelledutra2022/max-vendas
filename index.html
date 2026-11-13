@@ -603,12 +603,15 @@
   </div>
 
   <div class="card">
-    <label>Nome do Produto</label>
-    <input type="text" id="p-nome" placeholder="Ex: Camiseta" autocomplete="off">
-    <label>Categoria</label>
+    <label>Produto <span style="font-size:0.75rem;color:var(--muted);">(selecione da base)</span></label>
+    <select id="p-nome-select" style="margin-bottom:0;">
+      <option value="">— selecione o produto —</option>
+    </select>
+    <div id="p-nome-vazio-aviso" style="display:none;font-size:0.78rem;color:var(--danger);margin-top:4px;">
+      ⚠️ Cadastre produtos na base primeiro (seção abaixo)
+    </div>
+    <label style="margin-top:12px;">Categoria</label>
     <input type="text" id="p-categoria" placeholder="Ex: Roupas, Calçados, Acessórios" autocomplete="off">
-    <label>Sub Categoria</label>
-    <input type="text" id="p-subcategoria" placeholder="Ex: Feminino, Masculino, Infantil" autocomplete="off">
     <label>Tamanho</label>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;" id="tamanho-btns">
       <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'P/M')">P/M</button>
@@ -621,12 +624,26 @@
     <input type="number" id="p-preco" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
     <label>Estoque Inicial</label>
     <input type="number" id="p-estoque" value="0" min="0" inputmode="numeric">
-    <button class="btn btn-primary" onclick="adicionarProduto()">➕ Adicionar Produto</button>
+    <button class="btn btn-primary" onclick="adicionarProduto()">➕ Adicionar ao Catálogo</button>
   </div>
 
   <div class="section-title">Catálogo</div>
   <div class="card" id="prod-lista">
     <div class="empty"><div class="empty-icon">📦</div><p>Nenhum produto cadastrado.</p></div>
+  </div>
+
+  <!-- BASE DE NOMES -->
+  <div class="section-title" style="margin-top:16px;">📋 Base de Produtos</div>
+  <div class="card">
+    <div style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;">Cadastre os nomes dos produtos que serão usados no catálogo.</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="base-nome-input" placeholder="Ex: Camiseta, Bermuda, Sandália..." autocomplete="off" style="flex:1;margin:0;"
+        onkeydown="if(event.key==='Enter')adicionarBaseNome()">
+      <button onclick="adicionarBaseNome()" style="padding:11px 14px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:800;cursor:pointer;">➕</button>
+    </div>
+  </div>
+  <div class="card" id="base-nomes-lista">
+    <div class="empty"><div class="empty-icon">📋</div><p>Nenhum produto na base.</p></div>
   </div>
 </div>
 
@@ -688,6 +705,7 @@ function save(k, v) {
 let vendas = load('vendas_app', []);
 let produtos = load('produtos_app', []);
 let vendedores = load('vendedores_app', []);
+let baseNomes = load('base_nomes_app', []); // base de nomes de produtos pré-cadastrados
 let vendedorAtual = load('vendedor_atual', null); // { id, nome }
 let modoAdmin = false; // session-only, não persiste
 
@@ -696,10 +714,11 @@ async function inicializarDados() {
   const statusEl = document.getElementById('sync-status');
   if (statusEl) statusEl.textContent = '☁️ Sincronizando...';
   try {
-    const [rv, rp, rvd] = await Promise.all([
+    const [rv, rp, rvd, rbn] = await Promise.all([
       sb.from('vendas').select('*').order('created_at', { ascending: true }),
       sb.from('produtos').select('*').order('created_at', { ascending: true }),
-      sb.from('vendedores').select('*').order('created_at', { ascending: true })
+      sb.from('vendedores').select('*').order('created_at', { ascending: true }),
+      sb.from('base_nomes').select('*').order('nome', { ascending: true })
     ]);
     if (!rv.error && rv.data && rv.data.length > 0) {
       vendas = rv.data;
@@ -713,8 +732,13 @@ async function inicializarDados() {
       vendedores = rvd.data;
       save('vendedores_app', vendedores);
     }
+    if (!rbn.error && rbn.data) {
+      baseNomes = rbn.data;
+      save('base_nomes_app', baseNomes);
+    }
     renderDashboard();
     atualizarBadgeVendedor();
+    renderSelectProdutosCadastro();
     if (statusEl) { statusEl.textContent = '✅ Nuvem'; statusEl.style.color='#16a34a'; }
     // Se não há vendedor selecionado e há vendedores cadastrados, abre modal
     if (!vendedorAtual && vendedores.length > 0) {
@@ -751,7 +775,7 @@ function goScreen(name, btn) {
   if (btn) btn.classList.add('active');
   if (name === 'dashboard') renderDashboard();
   if (name === 'historico') { histFiltro = 'hoje'; renderHistorico('hoje'); }
-  if (name === 'produtos') renderProdutos();
+  if (name === 'produtos') { renderProdutos(); renderBaseNomes(); renderSelectProdutosCadastro(); }
   if (name === 'backup') { renderBackupInfo(); initSheets(); }
   if (name === 'venda') renderSelectProdutos();
   if (name === 'vendedores') { renderVendedoresTelaLista(); }
@@ -1088,7 +1112,6 @@ function selecionarTamanho(el, valor) {
   document.querySelectorAll('.tamanho-opt').forEach(b => b.classList.remove('ativo'));
   const atual = document.getElementById('p-tamanho').value;
   if (atual === valor) {
-    // clicou de novo → desseleciona
     document.getElementById('p-tamanho').value = '';
   } else {
     el.classList.add('ativo');
@@ -1097,31 +1120,88 @@ function selecionarTamanho(el, valor) {
 }
 
 function adicionarProduto() {
-  const nome = document.getElementById('p-nome').value.trim();
+  const sel = document.getElementById('p-nome-select');
+  const nome = sel ? sel.value : '';
   const preco = parseValor(document.getElementById('p-preco').value);
   const estoque = parseInt(document.getElementById('p-estoque').value) || 0;
   const categoria = document.getElementById('p-categoria').value.trim();
-  const subcategoria = document.getElementById('p-subcategoria').value.trim();
   const tamanho = document.getElementById('p-tamanho').value;
 
-  if (!nome) { toast('⚠️ Informe o nome'); return; }
+  if (!nome) { toast('⚠️ Selecione o produto'); return; }
   if (preco <= 0) { toast('⚠️ Informe o preço'); return; }
 
-  const novoProduto = { id: uid(), nome, preco, estoque, categoria, subcategoria, tamanho };
+  const novoProduto = { id: uid(), nome, preco, estoque, categoria, tamanho };
   produtos.push(novoProduto);
   save('produtos_app', produtos);
   sbUpsert('produtos', novoProduto);
 
-  document.getElementById('p-nome').value = '';
+  sel.value = '';
   document.getElementById('p-categoria').value = '';
-  document.getElementById('p-subcategoria').value = '';
   document.getElementById('p-tamanho').value = '';
   document.getElementById('p-preco').value = '';
   document.getElementById('p-estoque').value = '0';
   document.querySelectorAll('.tamanho-opt').forEach(b => b.classList.remove('ativo'));
 
   renderProdutos();
-  toast('📦 Produto cadastrado!');
+  toast('📦 Produto adicionado ao catálogo!');
+}
+
+// ---- BASE DE NOMES ----
+async function adicionarBaseNome() {
+  const input = document.getElementById('base-nome-input');
+  const nome = input.value.trim();
+  if (!nome) { toast('⚠️ Digite um nome'); return; }
+  if (baseNomes.find(b => b.nome.toLowerCase() === nome.toLowerCase())) {
+    toast('⚠️ Já está na base'); return;
+  }
+  const novo = { id: uid(), nome };
+  baseNomes.push(novo);
+  save('base_nomes_app', baseNomes);
+  sbUpsert('base_nomes', novo);
+  input.value = '';
+  renderBaseNomes();
+  renderSelectProdutosCadastro();
+  toast('✅ ' + nome + ' adicionado à base!');
+}
+
+async function deletarBaseNome(id) {
+  baseNomes = baseNomes.filter(b => b.id !== id);
+  save('base_nomes_app', baseNomes);
+  sbDelete('base_nomes', id);
+  renderBaseNomes();
+  renderSelectProdutosCadastro();
+  toast('🗑️ Removido da base');
+}
+
+function renderBaseNomes() {
+  const el = document.getElementById('base-nomes-lista');
+  if (!el) return;
+  if (!baseNomes.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>Nenhum produto na base.</p></div>';
+    return;
+  }
+  const sorted = [...baseNomes].sort((a,b) => a.nome.localeCompare(b.nome));
+  el.innerHTML = sorted.map(b => `
+    <div class="produto-item">
+      <div class="produto-nome">📌 ${esc(b.nome)}</div>
+      <button class="venda-delete" onclick="deletarBaseNome('${b.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+function renderSelectProdutosCadastro() {
+  const sel = document.getElementById('p-nome-select');
+  const aviso = document.getElementById('p-nome-vazio-aviso');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— selecione o produto —</option>';
+  const sorted = [...baseNomes].sort((a,b) => a.nome.localeCompare(b.nome));
+  sorted.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.nome;
+    opt.textContent = b.nome;
+    sel.appendChild(opt);
+  });
+  if (aviso) aviso.style.display = baseNomes.length ? 'none' : 'block';
 }
 
 function deletarProduto(id) {
