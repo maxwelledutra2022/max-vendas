@@ -369,6 +369,29 @@
 
 <!-- MODAL DEFINIR SENHA VENDEDOR (admin) -->
 <!-- Modal Estabelecimento -->
+<!-- Modal WhatsApp -->
+<div id="modal-wpp" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+    <div style="font-weight:800;font-size:1rem;">💬 Enviar WhatsApp</div>
+    <p id="cf-wpp-label" style="font-size:.84rem;color:var(--muted);margin:0;"></p>
+    <div>
+      <label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Telefone com DDI+DDD (ex: 5511999990000)</label>
+      <input id="cf-wpp-tel" type="tel" placeholder="5511999990000" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:.9rem;">
+    </div>
+    <div>
+      <label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px;">Mensagem</label>
+      <textarea id="cf-wpp-msg" rows="6" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:.82rem;resize:vertical;"></textarea>
+    </div>
+    <input type="hidden" id="cf-wpp-tipo">
+    <input type="hidden" id="cf-wpp-nome">
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button onclick="document.getElementById('modal-wpp').style.display='none'" class="btn btn-ghost">Fechar</button>
+      <button onclick="cfWppCopiar()" class="btn btn-ghost">📋 Copiar</button>
+      <button onclick="cfWppEnviar()" class="btn btn-primary">📲 Abrir WhatsApp</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-estabelecimento" onclick="if(event.target===this)fecharModal('modal-estabelecimento')"
   style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:800;align-items:flex-end;justify-content:center;">
   <div class="senha-sheet" style="border-radius:20px 20px 0 0;padding:24px 20px 32px;">
@@ -2377,6 +2400,13 @@ let cf_config    = JSON.parse(localStorage.getItem('cf_config')    || JSON.strin
   val_estamparia: 1.50,
   val_costureiro: 1.86
 }));
+// Migrar estamparias/costureiros de string para objeto {nome, tel}
+if (cf_config.estamparias.length && typeof cf_config.estamparias[0] === 'string') {
+  cf_config.estamparias = cf_config.estamparias.map(e => typeof e === 'string' ? {nome: e, tel: ''} : e);
+}
+if (cf_config.costureiros.length && typeof cf_config.costureiros[0] === 'string') {
+  cf_config.costureiros = cf_config.costureiros.map(c => typeof c === 'string' ? {nome: c, tel: ''} : c);
+}
 
 let cfFiltroCorte = 'todos';
 let cfFiltroEst   = 'todos';
@@ -2524,8 +2554,8 @@ function cfExcluirCorte(id) {
 function cfPopulateCorteSelects() {
   const opts = '<option value="">Selecionar</option>' + cf_cortes.sort((a,b)=>parseInt(b.numero||0)-parseInt(a.numero||0)).map(c => `<option value="${c.id}">#${c.numero} - ${c.descricao}</option>`).join('');
   ['cf-e-corte','cf-cos-corte'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = opts; });
-  const estOpts = '<option value="">Selecionar</option>' + cf_config.estamparias.map(e => `<option>${e}</option>`).join('');
-  const cosOpts = '<option value="">Selecionar</option>' + cf_config.costureiros.map(c => `<option>${c}</option>`).join('');
+  const estOpts = '<option value="">Selecionar</option>' + cf_config.estamparias.map(e => `<option>${e.nome||e}</option>`).join('');
+  const cosOpts = '<option value="">Selecionar</option>' + cf_config.costureiros.map(c => `<option>${c.nome||c}</option>`).join('');
   const ee = document.getElementById('cf-e-estamparia'); if(ee) ee.innerHTML = estOpts;
   const co = document.getElementById('cf-cos-oficina'); if(co) co.innerHTML = cosOpts;
 }
@@ -2573,6 +2603,12 @@ function cfSalvarEst() {
   cfFechar('cf-modal-est');
   cfRenderEstamparia();
   cfRenderCortes();
+  // WhatsApp após salvar (apenas novo registro, não edição)
+  if (!cfEditandoEstId) {
+    const corte = cf_cortes.find(c => c.id === corte_id);
+    cfEnviarWhatsappEst(est_nome, corte, entrega, data);
+  }
+  cfEditandoEstId = null;
 }
 function cfRenderEstamparia() {
   const busca = (document.getElementById('cf-busca-est')?.value||'').toLowerCase();
@@ -2692,6 +2728,12 @@ function cfSalvarCos() {
   cfFechar('cf-modal-cos');
   cfRenderCostureiro();
   cfRenderCortes();
+  // WhatsApp após salvar (apenas novo registro, não edição)
+  if (!cfEditandoCosId) {
+    const corte = cf_cortes.find(c => c.id === corte_id);
+    cfEnviarWhatsappCos(oficina, corte, qtd, data);
+  }
+  cfEditandoCosId = null;
 }
 function cfRenderCostureiro() {
   const busca = (document.getElementById('cf-busca-cos')?.value||'').toLowerCase();
@@ -2985,23 +3027,51 @@ function cfConfirmarLancamento(corteId) {
 
 // --- CONFIG ---
 function cfRenderConfig() {
-  document.getElementById('ct-cfg-estamparias').innerHTML = cf_config.estamparias.map((e,i) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
-      <span style="font-size:.88rem;font-weight:600;">${e}</span>
-      <button onclick="cfRemoverEst(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;">✕</button>
-    </div>`).join('') || '<p style="font-size:.8rem;color:var(--muted);">Nenhuma cadastrada.</p>';
-  document.getElementById('ct-cfg-costureiros').innerHTML = cf_config.costureiros.map((c,i) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
-      <span style="font-size:.88rem;font-weight:600;">${c}</span>
-      <button onclick="cfRemoverCos(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;">✕</button>
-    </div>`).join('') || '<p style="font-size:.8rem;color:var(--muted);">Nenhum cadastrado.</p>';
+  document.getElementById('ct-cfg-estamparias').innerHTML = cf_config.estamparias.map((e,i) => {
+    const nome = e.nome||e; const tel = e.tel||'';
+    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:.88rem;font-weight:700;">${nome}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:3px;">
+          <span style="font-size:.7rem;">📱</span>
+          <input type="tel" placeholder="55119XXXXX" value="${tel}" oninput="cfAtualizarTelEst(${i},this.value)"
+            style="font-size:.78rem;border:1px solid var(--border);border-radius:6px;padding:2px 6px;width:130px;">
+        </div>
+      </div>
+      ${tel ? `<a href="https://wa.me/${tel.replace(/\D/g,'')}" target="_blank" title="WhatsApp" style="font-size:1.1rem;text-decoration:none;">💬</a>` : '<span></span>'}
+      <button onclick="cfRemoverEst(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;">✕</button>
+    </div>`;
+  }).join('') || '<p style="font-size:.8rem;color:var(--muted);">Nenhuma cadastrada.</p>';
+
+  document.getElementById('ct-cfg-costureiros').innerHTML = cf_config.costureiros.map((c,i) => {
+    const nome = c.nome||c; const tel = c.tel||'';
+    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:.88rem;font-weight:700;">${nome}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:3px;">
+          <span style="font-size:.7rem;">📱</span>
+          <input type="tel" placeholder="55119XXXXX" value="${tel}" oninput="cfAtualizarTelCos(${i},this.value)"
+            style="font-size:.78rem;border:1px solid var(--border);border-radius:6px;padding:2px 6px;width:130px;">
+        </div>
+      </div>
+      ${tel ? `<a href="https://wa.me/${tel.replace(/\D/g,'')}" target="_blank" title="WhatsApp" style="font-size:1.1rem;text-decoration:none;">💬</a>` : '<span></span>'}
+      <button onclick="cfRemoverCos(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;">✕</button>
+    </div>`;
+  }).join('') || '<p style="font-size:.8rem;color:var(--muted);">Nenhum cadastrado.</p>';
+
   document.getElementById('ct-val-estamparia').value = cf_config.val_estamparia||1.50;
   document.getElementById('ct-val-costureiro').value = cf_config.val_costureiro||1.86;
   document.getElementById('ct-supabase-status').textContent = 'Verificação disponível apenas com tabelas criadas.';
 }
+function cfAtualizarTelEst(i, val) {
+  if (cf_config.estamparias[i]) { cf_config.estamparias[i].tel = val.trim(); cfSalvar('cf_config', cf_config); }
+}
+function cfAtualizarTelCos(i, val) {
+  if (cf_config.costureiros[i]) { cf_config.costureiros[i].tel = val.trim(); cfSalvar('cf_config', cf_config); }
+}
 function cfAddEstamparia() {
   const v = document.getElementById('ct-nova-estamparia').value.trim().toUpperCase(); if (!v) return;
-  if (!cf_config.estamparias.includes(v)) { cf_config.estamparias.push(v); cfSalvar('cf_config', cf_config); }
+  if (!cf_config.estamparias.find(e => (e.nome||e) === v)) { cf_config.estamparias.push({nome: v, tel: ''}); cfSalvar('cf_config', cf_config); }
   document.getElementById('ct-nova-estamparia').value = '';
   cfRenderConfig();
 }
@@ -3010,7 +3080,7 @@ function cfRemoverEst(i) {
 }
 function cfAddCostureiro() {
   const v = document.getElementById('ct-novo-costureiro').value.trim().toUpperCase(); if (!v) return;
-  if (!cf_config.costureiros.includes(v)) { cf_config.costureiros.push(v); cfSalvar('cf_config', cf_config); }
+  if (!cf_config.costureiros.find(c => (c.nome||c) === v)) { cf_config.costureiros.push({nome: v, tel: ''}); cfSalvar('cf_config', cf_config); }
   document.getElementById('ct-novo-costureiro').value = '';
   cfRenderConfig();
 }
@@ -3022,6 +3092,77 @@ function cfSalvarConfig() {
   cf_config.val_costureiro = parseFloat(document.getElementById('ct-val-costureiro').value)||1.86;
   cfSalvar('cf_config', cf_config);
   alert('Configurações salvas!');
+}
+
+// ---- WHATSAPP ----
+function cfGetTelEst(nome) {
+  const obj = cf_config.estamparias.find(e => (e.nome||e) === nome);
+  return obj?.tel || '';
+}
+function cfGetTelCos(nome) {
+  const obj = cf_config.costureiros.find(c => (c.nome||c) === nome);
+  return obj?.tel || '';
+}
+function cfFmtDataBR(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return isNaN(dt) ? d : dt.toLocaleDateString('pt-BR');
+}
+function cfEnviarWhatsappEst(estNome, corte, qtd, data) {
+  const tel = cfGetTelEst(estNome);
+  const numCorte = corte?.numero || '';
+  const desc = corte?.descricao || '';
+  const dataFmt = cfFmtDataBR(data);
+  const msg = `Olá ${estNome}! 👋\n\nSegue envio para estamparia:\n\n✂️ *Corte Nº ${numCorte}*${desc ? ' — ' + desc : ''}\n📦 Peças: *${qtd}*\n📅 Data: ${dataFmt}\n\nAguardamos o retorno. Obrigado!`;
+  if (tel) {
+    const url = `https://wa.me/${tel.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  } else {
+    cfMostrarModalWhatsapp(msg, `estamparia "${estNome}"`, 'est', estNome);
+  }
+}
+function cfEnviarWhatsappCos(cosNome, corte, qtd, data) {
+  const tel = cfGetTelCos(cosNome);
+  const numCorte = corte?.numero || '';
+  const desc = corte?.descricao || '';
+  const dataFmt = cfFmtDataBR(data);
+  const msg = `Olá ${cosNome}! 👋\n\nSegue envio para costura:\n\n✂️ *Corte Nº ${numCorte}*${desc ? ' — ' + desc : ''}\n📦 Peças: *${qtd}*\n📅 Data: ${dataFmt}\n\nAguardamos o retorno. Obrigado!`;
+  if (tel) {
+    const url = `https://wa.me/${tel.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  } else {
+    cfMostrarModalWhatsapp(msg, `costureiro "${cosNome}"`, 'cos', cosNome);
+  }
+}
+function cfMostrarModalWhatsapp(msg, label, tipo, nome) {
+  document.getElementById('cf-wpp-label').textContent = `Nenhum telefone cadastrado para ${label}. Deseja informar agora ou copiar a mensagem?`;
+  document.getElementById('cf-wpp-tel').value = '';
+  document.getElementById('cf-wpp-msg').value = msg;
+  document.getElementById('cf-wpp-tipo').value = tipo;
+  document.getElementById('cf-wpp-nome').value = nome;
+  document.getElementById('modal-wpp').style.display = 'flex';
+}
+function cfWppEnviar() {
+  const tel = document.getElementById('cf-wpp-tel').value.replace(/\D/g,'');
+  const msg = document.getElementById('cf-wpp-msg').value;
+  const tipo = document.getElementById('cf-wpp-tipo').value;
+  const nome = document.getElementById('cf-wpp-nome').value;
+  if (!tel) { alert('Informe o telefone com DDD, ex: 5511999990000'); return; }
+  // Salvar telefone na config
+  if (tipo === 'est') {
+    const idx = cf_config.estamparias.findIndex(e => (e.nome||e) === nome);
+    if (idx >= 0) { cf_config.estamparias[idx].tel = tel; cfSalvar('cf_config', cf_config); }
+  } else {
+    const idx = cf_config.costureiros.findIndex(c => (c.nome||c) === nome);
+    if (idx >= 0) { cf_config.costureiros[idx].tel = tel; cfSalvar('cf_config', cf_config); }
+  }
+  window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank');
+  document.getElementById('modal-wpp').style.display = 'none';
+}
+function cfWppCopiar() {
+  const msg = document.getElementById('cf-wpp-msg').value;
+  navigator.clipboard.writeText(msg).then(() => alert('Mensagem copiada!')).catch(() => { document.getElementById('cf-wpp-msg').select(); document.execCommand('copy'); alert('Mensagem copiada!'); });
+  document.getElementById('modal-wpp').style.display = 'none';
 }
 
 // ---- EXPORTAR EXCEL ----
