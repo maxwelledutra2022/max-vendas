@@ -611,18 +611,36 @@
       ⚠️ Cadastre produtos na base primeiro (seção abaixo)
     </div>
     <label style="margin-top:12px;">Categoria</label>
-    <input type="text" id="p-categoria" placeholder="Ex: Roupas, Calçados, Acessórios" autocomplete="off">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+      <button type="button" class="tamanho-opt" onclick="selecionarCategoria(this,'Roupa')">👗 Roupa</button>
+      <button type="button" class="tamanho-opt" onclick="selecionarCategoria(this,'Acessórios')">💍 Acessórios</button>
+    </div>
+    <input type="hidden" id="p-categoria" value="">
+
     <label>Tamanho</label>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;" id="tamanho-btns">
+      <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'34')">34</button>
+      <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'36')">36</button>
+      <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'38')">38</button>
+      <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'40')">40</button>
+      <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'42')">42</button>
+      <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'44')">44</button>
       <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'P/M')">P/M</button>
       <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'G/GG')">G/GG</button>
       <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'PLUS SIZE')">PLUS SIZE</button>
       <button type="button" class="tamanho-opt" onclick="selecionarTamanho(this,'ÚNICO')">ÚNICO</button>
     </div>
     <input type="hidden" id="p-tamanho" value="">
+
     <label>Preço de Venda (R$)</label>
-    <input type="number" id="p-preco" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
-    <label>Estoque Inicial</label>
+    <input type="number" id="p-preco" placeholder="0,00" min="0" step="0.01" inputmode="decimal" oninput="calcPrecoDesconto()">
+    <label>Desconto (%)</label>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="number" id="p-desconto" placeholder="0" min="0" max="100" step="1" inputmode="numeric" style="width:90px;margin:0;" oninput="calcPrecoDesconto()">
+      <div id="p-preco-final-preview" style="flex:1;padding:10px 12px;background:var(--bg);border-radius:10px;font-size:0.85rem;color:var(--muted);">Preço com desconto: —</div>
+    </div>
+
+    <label style="margin-top:12px;">Estoque Inicial</label>
     <input type="number" id="p-estoque" value="0" min="0" inputmode="numeric">
     <button class="btn btn-primary" onclick="adicionarProduto()">➕ Adicionar ao Catálogo</button>
   </div>
@@ -955,7 +973,9 @@ function renderSelectProdutos() {
   produtos.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.id;
-    opt.textContent = p.nome + ' · ' + fmt(p.preco);
+    const precoExib = p.desconto > 0 ? fmt(p.preco_final || p.preco) + ' (-' + p.desconto + '%)' : fmt(p.preco);
+    const info = [p.nome, p.tamanho, p.categoria].filter(Boolean).join(' · ');
+    opt.textContent = info + ' — ' + precoExib;
     sel.appendChild(opt);
   });
 }
@@ -963,8 +983,8 @@ function renderSelectProdutos() {
 document.getElementById('v-produto').addEventListener('change', function() {
   const p = produtos.find(x => x.id === this.value);
   if (p) {
-    document.getElementById('v-nome').value = p.nome;
-    document.getElementById('v-preco').value = p.preco;
+    document.getElementById('v-nome').value = p.nome + (p.tamanho ? ' ' + p.tamanho : '');
+    document.getElementById('v-preco').value = p.desconto > 0 ? (p.preco_final || p.preco) : p.preco;
     calcPreview();
   }
 });
@@ -1108,8 +1128,20 @@ function excluirPeriodo() {
 }
 
 // ---- PRODUTOS ----
+function selecionarCategoria(el, valor) {
+  // desseleciona outros botões de categoria
+  el.parentNode.querySelectorAll('.tamanho-opt').forEach(b => b.classList.remove('ativo'));
+  const atual = document.getElementById('p-categoria').value;
+  if (atual === valor) {
+    document.getElementById('p-categoria').value = '';
+  } else {
+    el.classList.add('ativo');
+    document.getElementById('p-categoria').value = valor;
+  }
+}
+
 function selecionarTamanho(el, valor) {
-  document.querySelectorAll('.tamanho-opt').forEach(b => b.classList.remove('ativo'));
+  document.getElementById('tamanho-btns').querySelectorAll('.tamanho-opt').forEach(b => b.classList.remove('ativo'));
   const atual = document.getElementById('p-tamanho').value;
   if (atual === valor) {
     document.getElementById('p-tamanho').value = '';
@@ -1119,18 +1151,41 @@ function selecionarTamanho(el, valor) {
   }
 }
 
+function calcPrecoDesconto() {
+  const preco = parseValor(document.getElementById('p-preco').value);
+  const desc = parseFloat(document.getElementById('p-desconto').value) || 0;
+  const prev = document.getElementById('p-preco-final-preview');
+  if (!prev) return;
+  if (preco > 0 && desc > 0) {
+    const final = preco * (1 - desc / 100);
+    prev.textContent = 'Preço com desconto: ' + fmt(final);
+    prev.style.color = 'var(--success)';
+    prev.style.fontWeight = '700';
+  } else if (preco > 0) {
+    prev.textContent = 'Sem desconto aplicado';
+    prev.style.color = 'var(--muted)';
+    prev.style.fontWeight = 'normal';
+  } else {
+    prev.textContent = 'Preço com desconto: —';
+    prev.style.color = 'var(--muted)';
+    prev.style.fontWeight = 'normal';
+  }
+}
+
 function adicionarProduto() {
   const sel = document.getElementById('p-nome-select');
   const nome = sel ? sel.value : '';
   const preco = parseValor(document.getElementById('p-preco').value);
+  const desconto = parseFloat(document.getElementById('p-desconto').value) || 0;
+  const precoFinal = desconto > 0 ? +(preco * (1 - desconto / 100)).toFixed(2) : preco;
   const estoque = parseInt(document.getElementById('p-estoque').value) || 0;
-  const categoria = document.getElementById('p-categoria').value.trim();
+  const categoria = document.getElementById('p-categoria').value;
   const tamanho = document.getElementById('p-tamanho').value;
 
   if (!nome) { toast('⚠️ Selecione o produto'); return; }
   if (preco <= 0) { toast('⚠️ Informe o preço'); return; }
 
-  const novoProduto = { id: uid(), nome, preco, estoque, categoria, tamanho };
+  const novoProduto = { id: uid(), nome, preco, desconto, preco_final: precoFinal, estoque, categoria, tamanho };
   produtos.push(novoProduto);
   save('produtos_app', produtos);
   sbUpsert('produtos', novoProduto);
@@ -1139,7 +1194,11 @@ function adicionarProduto() {
   document.getElementById('p-categoria').value = '';
   document.getElementById('p-tamanho').value = '';
   document.getElementById('p-preco').value = '';
+  document.getElementById('p-desconto').value = '';
   document.getElementById('p-estoque').value = '0';
+  document.getElementById('p-preco-final-preview').textContent = 'Preço com desconto: —';
+  document.getElementById('p-preco-final-preview').style.color = 'var(--muted)';
+  document.getElementById('p-preco-final-preview').style.fontWeight = 'normal';
   document.querySelectorAll('.tamanho-opt').forEach(b => b.classList.remove('ativo'));
 
   renderProdutos();
@@ -1223,11 +1282,15 @@ function renderProdutos() {
       <div style="flex:1;min-width:0;">
         <div class="produto-nome">${esc(p.nome)}</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;align-items:center;">
-          <span class="produto-preco">${fmt(p.preco)}</span>
+          ${p.desconto > 0
+            ? `<span class="produto-preco" style="text-decoration:line-through;color:var(--muted);font-size:0.8rem;">${fmt(p.preco)}</span>
+               <span class="produto-preco" style="color:var(--success);">${fmt(p.preco_final || p.preco)}</span>
+               <span class="prod-tag" style="background:#fef9c3;color:#854d0e;">-${p.desconto}%</span>`
+            : `<span class="produto-preco">${fmt(p.preco)}</span>`
+          }
           <span class="badge ${p.estoque <= 5 ? 'badge-low' : 'badge-ok'}">${p.estoque} un.</span>
           ${p.tamanho ? `<span class="prod-tag">${esc(p.tamanho)}</span>` : ''}
           ${p.categoria ? `<span class="prod-tag" style="background:#f0fdf4;color:#166534;">${esc(p.categoria)}</span>` : ''}
-          ${p.subcategoria ? `<span class="prod-tag" style="background:#fdf4ff;color:#7e22ce;">${esc(p.subcategoria)}</span>` : ''}
         </div>
       </div>
       <button class="venda-delete" onclick="deletarProduto('${p.id}')">✕</button>
