@@ -1266,11 +1266,12 @@ async function inicializarDados() {
   const statusEl = document.getElementById('sync-status');
   if (statusEl) statusEl.textContent = '☁️ Sincronizando...';
   try {
-    const [rv, rp, rvd, rbn] = await Promise.all([
+    const [rv, rp, rvd, rbn, rem] = await Promise.all([
       sb.from('vendas').select('*').order('created_at', { ascending: true }),
       sb.from('produtos').select('*').order('created_at', { ascending: true }),
       sb.from('vendedores').select('*').order('created_at', { ascending: true }),
-      sb.from('base_nomes').select('*').order('nome', { ascending: true })
+      sb.from('base_nomes').select('*').order('nome', { ascending: true }),
+      sb.from('est_movimentos').select('*').order('created_at', { ascending: false })
     ]);
     if (!rv.error && rv.data && rv.data.length > 0) {
       vendas = rv.data;
@@ -1287,6 +1288,10 @@ async function inicializarDados() {
     if (!rbn.error && rbn.data) {
       baseNomes = rbn.data;
       save('base_nomes_app', baseNomes);
+    }
+    if (!rem.error && rem.data) {
+      est_movimentos = rem.data;
+      estSalvarLocal();
     }
     renderDashboard();
     atualizarBadgeVendedor();
@@ -3938,6 +3943,13 @@ const EST_COR = { 'FÁBRICA':'#6366f1', 'BOX A':'#f59e0b', 'BOX V':'#10b981', 'B
 
 function estSalvarLocal() { localStorage.setItem('est_movimentos', JSON.stringify(est_movimentos)); }
 
+async function estSyncNuvem(mov) {
+  try { await sbUpsert('est_movimentos', mov); } catch(e) { console.warn('Estoque offline:', e.message); }
+}
+async function estExcluirNuvem(id) {
+  try { await sbDelete('est_movimentos', id); } catch(e) { console.warn('Estoque offline:', e.message); }
+}
+
 function estInit() {
   // Seta data de hoje nos campos
   const hoje = new Date().toISOString().slice(0,10);
@@ -4009,8 +4021,10 @@ function estSalvarEntrada() {
   const qtd     = parseInt(document.getElementById('est-ent-qtd').value) || 0;
   const obs     = document.getElementById('est-ent-obs').value.trim();
   if (!data || !produto || qtd <= 0) { alert('Preencha data, produto e quantidade.'); return; }
-  est_movimentos.unshift({ id: 'em_' + Date.now(), tipo: 'entrada', data, produto, qtd, obs, created_at: Date.now() });
+  const novoMov = { id: 'em_' + Date.now(), tipo: 'entrada', data, produto, qtd, obs, created_at: Date.now() };
+  est_movimentos.unshift(novoMov);
   estSalvarLocal();
+  estSyncNuvem(novoMov);
   document.getElementById('est-ent-qtd').value = '';
   document.getElementById('est-ent-obs').value = '';
   toast('✅ Entrada registrada! +' + qtd + ' ' + produto);
@@ -4026,8 +4040,10 @@ function estSalvarTransferencia() {
   if (!data || !produto || !destino || qtd <= 0) { alert('Preencha todos os campos.'); return; }
   const saldo = estSaldoFabrica(produto);
   if (qtd > saldo) { alert(`Saldo insuficiente na Fábrica!\nDisponível: ${saldo} un.`); return; }
-  est_movimentos.unshift({ id: 'em_' + Date.now(), tipo: 'transferencia', data, produto, destino, qtd, obs, created_at: Date.now() });
+  const novoTrf = { id: 'em_' + Date.now(), tipo: 'transferencia', data, produto, destino, qtd, obs, created_at: Date.now() };
+  est_movimentos.unshift(novoTrf);
   estSalvarLocal();
+  estSyncNuvem(novoTrf);
   document.getElementById('est-trf-qtd').value = '';
   document.getElementById('est-trf-obs').value = '';
   document.getElementById('est-trf-saldo-info').textContent = '';
