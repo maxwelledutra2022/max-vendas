@@ -1110,7 +1110,6 @@ ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
     <!-- Tabs internas -->
     <div style="display:flex;gap:8px;background:#f1f5f9;border-radius:12px;padding:4px;">
       <button id="est-tab-painel" onclick="estAba('painel')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;background:var(--primary);color:#fff;">📊 Painel</button>
-      <button id="est-tab-entrada" onclick="estAba('entrada')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">📥 Entrada</button>
       <button id="est-tab-transferir" onclick="estAba('transferir')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">🔄 Transferir</button>
     </div>
 
@@ -1120,32 +1119,6 @@ ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
       <div id="est-painel-saldos" style="display:flex;flex-direction:column;gap:10px;"></div>
       <div style="font-weight:800;font-size:.95rem;margin:16px 0 10px;">📋 Movimentações Recentes</div>
       <div id="est-painel-movs"></div>
-    </div>
-
-    <!-- ABA ENTRADA -->
-    <div id="est-aba-entrada" style="display:none;">
-      <div class="card">
-        <div style="font-weight:800;margin-bottom:12px;font-size:.95rem;">📥 Entrada na Fábrica</div>
-        <div style="margin-bottom:10px;">
-          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Data</label>
-          <input type="date" id="est-ent-data" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
-        </div>
-        <div style="margin-bottom:10px;">
-          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Produto</label>
-          <select id="est-ent-produto" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
-            <option value="">Selecionar produto...</option>
-          </select>
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Quantidade</label>
-          <input type="number" id="est-ent-qtd" min="1" placeholder="0" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Observação (opcional)</label>
-          <input type="text" id="est-ent-obs" placeholder="Ex: Lote 001, NF 1234..." style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
-        </div>
-        <button onclick="estSalvarEntrada()" class="btn btn-primary" style="width:100%;">✅ Registrar Entrada</button>
-      </div>
     </div>
 
     <!-- ABA TRANSFERIR -->
@@ -3984,14 +3957,13 @@ function estInit() {
 }
 
 function estPopularProdutos() {
-  const prods = produtos_app || [];
+  const prods = produtos || [];
   const opts = '<option value="">Selecionar produto...</option>' + prods.map(p => `<option value="${p.nome}">${p.nome}</option>`).join('');
-  const se = document.getElementById('est-ent-produto'); if (se) se.innerHTML = opts;
   const st = document.getElementById('est-trf-produto'); if (st) st.innerHTML = opts;
 }
 
 function estAba(aba) {
-  ['painel','entrada','transferir'].forEach(a => {
+  ['painel','transferir'].forEach(a => {
     const el = document.getElementById('est-aba-' + a);
     const btn = document.getElementById('est-tab-' + a);
     if (el) el.style.display = a === aba ? '' : 'none';
@@ -4001,7 +3973,6 @@ function estAba(aba) {
     }
   });
   if (aba === 'painel') estRenderPainel();
-  if (aba === 'entrada') estPopularProdutos();
   if (aba === 'transferir') { estPopularProdutos(); estVerificarSaldo(); }
 }
 
