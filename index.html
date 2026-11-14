@@ -1098,6 +1098,95 @@ ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
 </div>
 
 <!-- BOTTOM NAV -->
+<!-- ==================== SCREEN ESTOQUE ==================== -->
+<div class="screen" id="screen-estoque">
+  <div class="topbar">
+    <div id="topDate-est"></div>
+    <div style="font-size:.8rem;font-weight:700;color:var(--muted);">📦 Estoque</div>
+  </div>
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px;padding-bottom:90px;">
+
+    <!-- Tabs internas -->
+    <div style="display:flex;gap:8px;background:#f1f5f9;border-radius:12px;padding:4px;">
+      <button id="est-tab-painel" onclick="estAba('painel')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;background:var(--primary);color:#fff;">📊 Painel</button>
+      <button id="est-tab-entrada" onclick="estAba('entrada')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">📥 Entrada</button>
+      <button id="est-tab-transferir" onclick="estAba('transferir')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">🔄 Transferir</button>
+    </div>
+
+    <!-- ABA PAINEL -->
+    <div id="est-aba-painel">
+      <div style="font-weight:800;font-size:.95rem;margin-bottom:10px;">Saldo por Local</div>
+      <div id="est-painel-saldos" style="display:flex;flex-direction:column;gap:10px;"></div>
+      <div style="font-weight:800;font-size:.95rem;margin:16px 0 10px;">📋 Movimentações Recentes</div>
+      <div id="est-painel-movs"></div>
+    </div>
+
+    <!-- ABA ENTRADA -->
+    <div id="est-aba-entrada" style="display:none;">
+      <div class="card">
+        <div style="font-weight:800;margin-bottom:12px;font-size:.95rem;">📥 Entrada na Fábrica</div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Data</label>
+          <input type="date" id="est-ent-data" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Produto</label>
+          <select id="est-ent-produto" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
+            <option value="">Selecionar produto...</option>
+          </select>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Quantidade</label>
+          <input type="number" id="est-ent-qtd" min="1" placeholder="0" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Observação (opcional)</label>
+          <input type="text" id="est-ent-obs" placeholder="Ex: Lote 001, NF 1234..." style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
+        </div>
+        <button onclick="estSalvarEntrada()" class="btn btn-primary" style="width:100%;">✅ Registrar Entrada</button>
+      </div>
+    </div>
+
+    <!-- ABA TRANSFERIR -->
+    <div id="est-aba-transferir" style="display:none;">
+      <div class="card">
+        <div style="font-weight:800;margin-bottom:12px;font-size:.95rem;">🔄 Transferir da Fábrica</div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Data</label>
+          <input type="date" id="est-trf-data" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Produto</label>
+          <select id="est-trf-produto" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
+            <option value="">Selecionar produto...</option>
+          </select>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Destino</label>
+          <select id="est-trf-destino" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
+            <option value="">Selecionar destino...</option>
+            <option value="BOX A">📦 Box A</option>
+            <option value="BOX V">📦 Box V</option>
+            <option value="BOX O">📦 Box O</option>
+            <option value="LOJA">🏪 Loja</option>
+          </select>
+        </div>
+        <div style="margin-bottom:6px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Quantidade</label>
+          <input type="number" id="est-trf-qtd" min="1" placeholder="0" oninput="estVerificarSaldo()" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
+        </div>
+        <div id="est-trf-saldo-info" style="font-size:.78rem;color:var(--muted);margin-bottom:10px;"></div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Observação (opcional)</label>
+          <input type="text" id="est-trf-obs" placeholder="Ex: Envio semana 46..." style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
+        </div>
+        <button onclick="estSalvarTransferencia()" class="btn btn-primary" style="width:100%;">🚚 Confirmar Transferência</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <nav class="bottom-nav">
   <button class="nav-btn active" onclick="goScreen('dashboard',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -1126,6 +1215,10 @@ ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
   <button class="nav-btn" onclick="goScreen('caixa',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
     Caixa
+  </button>
+  <button class="nav-btn" onclick="goScreen('estoque',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+    Estoque
   </button>
 </nav>
 
@@ -1259,6 +1352,17 @@ function goScreen(name, btn) {
     }
     fcInit();
   }
+  if (name === 'estoque') {
+    if (!modoAdmin) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('screen-dashboard').classList.add('active');
+      document.querySelector('.nav-btn').classList.add('active');
+      cfPedirAdminParaTela('estoque', '📦 Estoque');
+      return;
+    }
+    estInit();
+  }
   if (name === 'corte') {
     if (!modoAdmin) {
       // Voltar para a tela anterior e pedir login admin
@@ -1328,6 +1432,7 @@ function cfConfirmarAdminDestino() {
     if (destino === 'corte') { cfRenderCortes(); cfRenderEstamparia(); cfRenderCostureiro(); cfRenderFinanceiro(); cfRenderEstoque(); cfRenderConfig(); }
     if (destino === 'produtos') { renderProdutos(); renderBaseNomes(); renderSelectProdutosCadastro(); cfAtualizarAlertaProdutos(); }
     if (destino === 'caixa') { fcInit(); }
+    if (destino === 'estoque') { estInit(); }
     toast('✅ Acesso liberado');
   } else {
     inp.style.border = '1.5px solid var(--danger)';
@@ -3807,6 +3912,165 @@ function cfExportarExcel() {
   const nomeArquivo = `controle_corte_${dataStr}.xlsx`;
 
   XLSX.writeFile(wb, nomeArquivo);
+}
+
+// ==================== ESTOQUE ====================
+let est_movimentos = JSON.parse(localStorage.getItem('est_movimentos') || '[]');
+
+const EST_LOCAIS = ['FÁBRICA', 'BOX A', 'BOX V', 'BOX O', 'LOJA'];
+const EST_COR = { 'FÁBRICA':'#6366f1', 'BOX A':'#f59e0b', 'BOX V':'#10b981', 'BOX O':'#3b82f6', 'LOJA':'#ec4899' };
+
+function estSalvarLocal() { localStorage.setItem('est_movimentos', JSON.stringify(est_movimentos)); }
+
+function estInit() {
+  // Seta data de hoje nos campos
+  const hoje = new Date().toISOString().slice(0,10);
+  const de = document.getElementById('est-ent-data'); if (de) de.value = hoje;
+  const dt = document.getElementById('est-trf-data'); if (dt) dt.value = hoje;
+  // Preenche selects de produto
+  estPopularProdutos();
+  estAba('painel');
+  estRenderPainel();
+}
+
+function estPopularProdutos() {
+  const prods = produtos_app || [];
+  const opts = '<option value="">Selecionar produto...</option>' + prods.map(p => `<option value="${p.nome}">${p.nome}</option>`).join('');
+  const se = document.getElementById('est-ent-produto'); if (se) se.innerHTML = opts;
+  const st = document.getElementById('est-trf-produto'); if (st) st.innerHTML = opts;
+}
+
+function estAba(aba) {
+  ['painel','entrada','transferir'].forEach(a => {
+    const el = document.getElementById('est-aba-' + a);
+    const btn = document.getElementById('est-tab-' + a);
+    if (el) el.style.display = a === aba ? '' : 'none';
+    if (btn) {
+      btn.style.background = a === aba ? 'var(--primary)' : 'transparent';
+      btn.style.color = a === aba ? '#fff' : 'var(--muted)';
+    }
+  });
+  if (aba === 'painel') estRenderPainel();
+  if (aba === 'entrada') estPopularProdutos();
+  if (aba === 'transferir') { estPopularProdutos(); estVerificarSaldo(); }
+}
+
+function estSaldos() {
+  // Calcula saldo atual por local e produto
+  const saldos = {}; // { 'FÁBRICA': { 'ProdA': 10, ... }, ... }
+  EST_LOCAIS.forEach(l => saldos[l] = {});
+  est_movimentos.forEach(m => {
+    if (m.tipo === 'entrada') {
+      saldos['FÁBRICA'][m.produto] = (saldos['FÁBRICA'][m.produto] || 0) + m.qtd;
+    } else if (m.tipo === 'transferencia') {
+      saldos['FÁBRICA'][m.produto] = (saldos['FÁBRICA'][m.produto] || 0) - m.qtd;
+      saldos[m.destino] = saldos[m.destino] || {};
+      saldos[m.destino][m.produto] = (saldos[m.destino][m.produto] || 0) + m.qtd;
+    }
+  });
+  return saldos;
+}
+
+function estSaldoFabrica(produto) {
+  const s = estSaldos();
+  return (s['FÁBRICA'] && s['FÁBRICA'][produto]) || 0;
+}
+
+function estVerificarSaldo() {
+  const prod = document.getElementById('est-trf-produto')?.value;
+  const qtd = parseInt(document.getElementById('est-trf-qtd')?.value) || 0;
+  const info = document.getElementById('est-trf-saldo-info');
+  if (!info) return;
+  if (!prod) { info.textContent = ''; return; }
+  const saldo = estSaldoFabrica(prod);
+  const cor = qtd > saldo ? '#ef4444' : '#22c55e';
+  info.innerHTML = `Saldo na Fábrica: <b style="color:${cor};">${saldo} un.</b>${qtd > saldo ? ' ⚠️ Insuficiente' : ''}`;
+}
+
+function estSalvarEntrada() {
+  const data    = document.getElementById('est-ent-data').value;
+  const produto = document.getElementById('est-ent-produto').value;
+  const qtd     = parseInt(document.getElementById('est-ent-qtd').value) || 0;
+  const obs     = document.getElementById('est-ent-obs').value.trim();
+  if (!data || !produto || qtd <= 0) { alert('Preencha data, produto e quantidade.'); return; }
+  est_movimentos.unshift({ id: 'em_' + Date.now(), tipo: 'entrada', data, produto, qtd, obs, created_at: Date.now() });
+  estSalvarLocal();
+  document.getElementById('est-ent-qtd').value = '';
+  document.getElementById('est-ent-obs').value = '';
+  toast('✅ Entrada registrada! +' + qtd + ' ' + produto);
+  estAba('painel');
+}
+
+function estSalvarTransferencia() {
+  const data    = document.getElementById('est-trf-data').value;
+  const produto = document.getElementById('est-trf-produto').value;
+  const destino = document.getElementById('est-trf-destino').value;
+  const qtd     = parseInt(document.getElementById('est-trf-qtd').value) || 0;
+  const obs     = document.getElementById('est-trf-obs').value.trim();
+  if (!data || !produto || !destino || qtd <= 0) { alert('Preencha todos os campos.'); return; }
+  const saldo = estSaldoFabrica(produto);
+  if (qtd > saldo) { alert(`Saldo insuficiente na Fábrica!\nDisponível: ${saldo} un.`); return; }
+  est_movimentos.unshift({ id: 'em_' + Date.now(), tipo: 'transferencia', data, produto, destino, qtd, obs, created_at: Date.now() });
+  estSalvarLocal();
+  document.getElementById('est-trf-qtd').value = '';
+  document.getElementById('est-trf-obs').value = '';
+  document.getElementById('est-trf-saldo-info').textContent = '';
+  toast('✅ ' + qtd + ' ' + produto + ' → ' + destino);
+  estAba('painel');
+}
+
+function estRenderPainel() {
+  const saldos = estSaldos();
+  const fmt = v => v + ' un.';
+
+  // Painel de saldos
+  const pEl = document.getElementById('est-painel-saldos');
+  if (pEl) {
+    // Coleta todos os produtos que têm movimento
+    const todosProd = [...new Set(est_movimentos.map(m => m.produto))];
+    if (!todosProd.length) {
+      pEl.innerHTML = '<p style="font-size:.84rem;color:var(--muted);text-align:center;padding:16px 0;">Nenhuma movimentação registrada.</p>';
+    } else {
+      pEl.innerHTML = EST_LOCAIS.map(local => {
+        const sLocal = saldos[local] || {};
+        const total = Object.values(sLocal).reduce((a,b) => a+b, 0);
+        const detalhes = todosProd.filter(p => sLocal[p] > 0).map(p =>
+          `<span style="font-size:.72rem;background:#f1f5f9;border-radius:6px;padding:3px 8px;">${p}: <b>${sLocal[p]}</b></span>`
+        ).join(' ');
+        return `<div class="card" style="padding:12px 14px;border-left:4px solid ${EST_COR[local]||'#94a3b8'};">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="font-weight:800;font-size:.9rem;">${local}</div>
+            <div style="font-size:1.1rem;font-weight:900;color:${EST_COR[local]||'#333'};">${total} un.</div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">${detalhes || '<span style="font-size:.72rem;color:var(--muted);">Vazio</span>'}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // Movimentações recentes
+  const mEl = document.getElementById('est-painel-movs');
+  if (mEl) {
+    if (!est_movimentos.length) {
+      mEl.innerHTML = '<p style="font-size:.84rem;color:var(--muted);text-align:center;padding:8px 0;">Sem movimentações.</p>';
+    } else {
+      const fmtD = d => { if(!d) return ''; const [y,m,dia] = d.split('-'); return `${dia}/${m}/${y}`; };
+      mEl.innerHTML = est_movimentos.slice(0, 20).map(m => {
+        const icoTipo = m.tipo === 'entrada' ? '📥' : '🔄';
+        const desc = m.tipo === 'entrada'
+          ? `Entrada Fábrica: <b>+${m.qtd}</b> ${m.produto}`
+          : `Fábrica → ${m.destino}: <b>${m.qtd}</b> ${m.produto}`;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;">
+          <div style="font-size:1.1rem;">${icoTipo}</div>
+          <div style="flex:1;">
+            <div>${desc}</div>
+            ${m.obs ? `<div style="font-size:.72rem;color:var(--muted);">${m.obs}</div>` : ''}
+          </div>
+          <div style="font-size:.72rem;color:var(--muted);white-space:nowrap;">${fmtD(m.data)}</div>
+        </div>`;
+      }).join('');
+    }
+  }
 }
 
 // ---- INIT ----
