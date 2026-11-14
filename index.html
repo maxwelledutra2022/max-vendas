@@ -424,10 +424,15 @@
 <div id="vendedor-modal">
   <div class="vendedor-sheet">
     <div style="font-size:2rem;text-align:center;margin-bottom:8px;">👤</div>
-    <h3 style="text-align:center;">Quem está vendendo?</h3>
-    <p style="text-align:center;">Selecione seu nome para registrar as vendas corretamente.</p>
-    <div id="vendedor-lista-modal"></div>
-    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
+    <h3 style="text-align:center;">Identificação</h3>
+    <p style="text-align:center;font-size:.85rem;color:var(--muted);">Digite seu nome para acessar.</p>
+    <input type="text" id="v-login-nome" placeholder="Seu nome..." autocomplete="off"
+      onkeydown="if(event.key==='Enter')loginVendedor()"
+      style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:1rem;margin-bottom:8px;box-sizing:border-box;">
+    <div id="v-login-erro" style="font-size:.8rem;color:#ef4444;text-align:center;min-height:18px;margin-bottom:6px;"></div>
+    <button onclick="loginVendedor()" class="btn btn-primary" style="width:100%;font-size:.95rem;">▶ Entrar</button>
+    <!-- Só aparece para admin -->
+    <div id="v-login-admin-add" style="display:none;border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">
       <div style="font-size:0.8rem;font-weight:700;color:var(--muted);margin-bottom:8px;">ADICIONAR NOVO VENDEDOR</div>
       <div style="display:flex;gap:8px;">
         <input type="text" id="novo-vendedor-input" placeholder="Nome do vendedor" autocomplete="off" style="flex:1;margin-top:0;">
@@ -2574,18 +2579,30 @@ function atualizarBadgeVendedor() {
 }
 
 function renderVendedoresModal() {
-  const el = document.getElementById('vendedor-lista-modal');
-  if (!el) return;
-  if (!vendedores.length) {
-    el.innerHTML = '<p style="text-align:center;color:var(--muted);font-size:0.85rem;">Nenhum vendedor cadastrado ainda.<br>Adicione abaixo! 👇</p>';
+  // Limpa o campo de nome e erro ao abrir
+  const inp = document.getElementById('v-login-nome');
+  const erro = document.getElementById('v-login-erro');
+  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 150); }
+  if (erro) erro.textContent = '';
+  // Seção de adicionar vendedor: só admin vê
+  const adminAdd = document.getElementById('v-login-admin-add');
+  if (adminAdd) adminAdd.style.display = modoAdmin ? 'block' : 'none';
+}
+
+function loginVendedor() {
+  const inp = document.getElementById('v-login-nome');
+  const erro = document.getElementById('v-login-erro');
+  if (!inp) return;
+  const digitado = inp.value.trim();
+  if (!digitado) { erro.textContent = '⚠️ Digite seu nome para entrar.'; return; }
+  const v = vendedores.find(x => x.nome.toLowerCase() === digitado.toLowerCase());
+  if (!v) {
+    erro.textContent = '⚠️ Nome não encontrado. Tente novamente.';
+    inp.select();
     return;
   }
-  el.innerHTML = vendedores.map(v => `
-    <button class="vendedor-btn ${vendedorAtual && vendedorAtual.id === v.id ? 'ativo' : ''}"
-      onclick="iniciarSelecaoVendedor('${v.id}','${esc(v.nome)}')">
-      ${v.senha ? '🔒' : '👤'} ${esc(v.nome)} ${vendedorAtual && vendedorAtual.id === v.id ? '✓' : ''}
-    </button>
-  `).join('');
+  erro.textContent = '';
+  iniciarSelecaoVendedor(v.id, v.nome);
 }
 
 // Variável temporária para a seleção pendente de senha
