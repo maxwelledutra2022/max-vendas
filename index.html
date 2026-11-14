@@ -4203,10 +4203,16 @@ function estRenderPainel() {
         const detalhes = todosProd.filter(p => sLocal[p] > 0).map(p =>
           `<span style="font-size:.72rem;background:#f1f5f9;border-radius:6px;padding:3px 8px;">${p}: <b>${sLocal[p]}</b></span>`
         ).join(' ');
+        const btnZerar = local !== 'FÁBRICA'
+          ? `<button onclick="estZerarLocal('${local}')" style="padding:3px 10px;border:1px solid #ef4444;border-radius:7px;background:transparent;color:#ef4444;font-size:.72rem;font-weight:700;cursor:pointer;">🗑️ Zerar</button>`
+          : '';
         return `<div class="card" style="padding:12px 14px;border-left:4px solid ${EST_COR[local]||'#94a3b8'};">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div style="font-weight:800;font-size:.9rem;">${local}</div>
-            <div style="font-size:1.1rem;font-weight:900;color:${EST_COR[local]||'#333'};">${total} un.</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="font-size:1.1rem;font-weight:900;color:${EST_COR[local]||'#333'};">${total} un.</div>
+              ${btnZerar}
+            </div>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:4px;">${detalhes || '<span style="font-size:.72rem;color:var(--muted);">Vazio</span>'}</div>
         </div>`;
@@ -4237,6 +4243,29 @@ function estRenderPainel() {
       }).join('');
     }
   }
+}
+
+function estZerarLocal(local) {
+  const nomes = {'BOX A':'Box A','BOX V':'Box V','BOX O':'Box O','LOJA':'Loja'};
+  const nome = nomes[local] || local;
+  const saldos = estSaldos();
+  const total = Object.values(saldos[local] || {}).reduce((a,b) => a+b, 0);
+  if (total === 0) { toast('ℹ️ ' + nome + ' já está vazio'); return; }
+  if (!confirm(`Zerar estoque de ${nome}?\n${total} unidade(s) serão removidas.\n\nEssa ação não pode ser desfeita.`)) return;
+
+  // Remove todos os movimentos que alimentaram esse local
+  const removidos = est_movimentos.filter(m =>
+    (m.tipo === 'entrada' && (m.destino || 'FÁBRICA') === local) ||
+    (m.tipo === 'transferencia' && m.destino === local)
+  );
+  est_movimentos = est_movimentos.filter(m =>
+    !((m.tipo === 'entrada' && (m.destino || 'FÁBRICA') === local) ||
+      (m.tipo === 'transferencia' && m.destino === local))
+  );
+  estSalvarLocal();
+  removidos.forEach(m => estExcluirNuvem(m.id));
+  toast('🗑️ Estoque de ' + nome + ' zerado');
+  estRenderPainel();
 }
 
 // ---- INIT ----
