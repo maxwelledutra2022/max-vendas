@@ -719,9 +719,17 @@
       <div id="p-preco-final-preview" style="flex:1;padding:10px 12px;background:var(--bg);border-radius:10px;font-size:0.85rem;color:var(--muted);">Preço com desconto: —</div>
     </div>
 
-    <label style="margin-top:12px;">📦 Quantidade na Fábrica</label>
-    <div style="font-size:0.75rem;color:var(--muted);margin-bottom:6px;margin-top:-2px;">Quantas peças entram na Fábrica agora? (pode ser 0)</div>
+    <label style="margin-top:12px;">📦 Quantidade Inicial</label>
+    <div style="font-size:0.75rem;color:var(--muted);margin-bottom:6px;margin-top:-2px;">Quantas peças entram no estoque agora? (pode ser 0)</div>
     <input type="number" id="p-estoque" value="0" min="0" inputmode="numeric" placeholder="0">
+    <label style="margin-top:10px;">📍 Destino do Estoque</label>
+    <select id="p-estoque-destino" style="width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;background:var(--card);color:var(--text);">
+      <option value="FÁBRICA">🏭 Fábrica</option>
+      <option value="BOX A">📦 Box A</option>
+      <option value="BOX V">📦 Box V</option>
+      <option value="BOX O">📦 Box O</option>
+      <option value="LOJA">🏪 Loja</option>
+    </select>
     <button class="btn btn-primary" onclick="adicionarProduto()">➕ Adicionar ao Catálogo</button>
   </div>
 
@@ -1791,6 +1799,7 @@ function adicionarProduto() {
   const desconto = parseFloat(document.getElementById('p-desconto').value) || 0;
   const precoFinal = desconto > 0 ? +(preco * (1 - desconto / 100)).toFixed(2) : preco;
   const estoque = parseInt(document.getElementById('p-estoque').value) || 0;
+  const estoqueDestino = document.getElementById('p-estoque-destino').value || 'FÁBRICA';
   const categoria = document.getElementById('p-categoria').value;
   const tamanho = document.getElementById('p-tamanho').value;
 
@@ -1802,7 +1811,7 @@ function adicionarProduto() {
   save('produtos_app', produtos);
   sbUpsert('produtos', novoProduto);
 
-  // Sempre cria entrada na fábrica ao cadastrar produto (mesmo com qtd 0)
+  // Cria entrada no estoque escolhido ao cadastrar produto
   {
     const hoje = new Date().toISOString().slice(0, 10);
     const entradaAuto = {
@@ -1811,6 +1820,7 @@ function adicionarProduto() {
       data: hoje,
       produto: nome,
       qtd: estoque,
+      destino: estoqueDestino,
       obs: 'Entrada automática — cadastro do produto',
       created_at: Date.now()
     };
@@ -1825,16 +1835,18 @@ function adicionarProduto() {
   document.getElementById('p-preco').value = '';
   document.getElementById('p-desconto').value = '';
   document.getElementById('p-estoque').value = '0';
+  document.getElementById('p-estoque-destino').value = 'FÁBRICA';
   document.getElementById('p-preco-final-preview').textContent = 'Preço com desconto: —';
   document.getElementById('p-preco-final-preview').style.color = 'var(--muted)';
   document.getElementById('p-preco-final-preview').style.fontWeight = 'normal';
   document.querySelectorAll('.tamanho-opt').forEach(b => b.classList.remove('ativo'));
 
   renderProdutos();
+  const nomeLocal = {'FÁBRICA':'Fábrica','BOX A':'Box A','BOX V':'Box V','BOX O':'Box O','LOJA':'Loja'};
   if (estoque > 0) {
-    toast('📦 Produto adicionado! ' + estoque + ' un. → Fábrica');
+    toast('📦 Produto adicionado! ' + estoque + ' un. → ' + (nomeLocal[estoqueDestino] || estoqueDestino));
   } else {
-    toast('📦 Produto adicionado! Registrado na Fábrica (0 un.)');
+    toast('📦 Produto adicionado! Registrado em ' + (nomeLocal[estoqueDestino] || estoqueDestino) + ' (0 un.)');
   }
 }
 
@@ -3982,7 +3994,9 @@ function estSaldos() {
   EST_LOCAIS.forEach(l => saldos[l] = {});
   est_movimentos.forEach(m => {
     if (m.tipo === 'entrada') {
-      saldos['FÁBRICA'][m.produto] = (saldos['FÁBRICA'][m.produto] || 0) + m.qtd;
+      const local = m.destino || 'FÁBRICA';
+      if (!saldos[local]) saldos[local] = {};
+      saldos[local][m.produto] = (saldos[local][m.produto] || 0) + m.qtd;
     } else if (m.tipo === 'transferencia') {
       saldos['FÁBRICA'][m.produto] = (saldos['FÁBRICA'][m.produto] || 0) - m.qtd;
       saldos[m.destino] = saldos[m.destino] || {};
