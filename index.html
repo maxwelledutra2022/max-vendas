@@ -1118,7 +1118,8 @@ ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
     <!-- Tabs internas -->
     <div style="display:flex;gap:8px;background:#f1f5f9;border-radius:12px;padding:4px;">
       <button id="est-tab-painel" onclick="estAba('painel')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;background:var(--primary);color:#fff;">📊 Painel</button>
-      <button id="est-tab-transferir" onclick="estAba('transferir')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">🔄 Transferir</button>
+      <button id="est-tab-distribuir" onclick="estAba('distribuir')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">📤 Distribuir</button>
+      <button id="est-tab-transferir" onclick="estAba('transferir')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">🔄 Histórico</button>
     </div>
 
     <!-- ABA PAINEL -->
@@ -1127,6 +1128,42 @@ ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
       <div id="est-painel-saldos" style="display:flex;flex-direction:column;gap:10px;"></div>
       <div style="font-weight:800;font-size:.95rem;margin:16px 0 10px;">📋 Movimentações Recentes</div>
       <div id="est-painel-movs"></div>
+    </div>
+
+    <!-- ABA DISTRIBUIR -->
+    <div id="est-aba-distribuir" style="display:none;">
+      <div class="card">
+        <div style="font-weight:800;margin-bottom:4px;font-size:.95rem;">📤 Distribuir da Fábrica</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:14px;">Selecione o produto e mova para o destino</div>
+
+        <!-- Produto + saldo -->
+        <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Produto</label>
+        <select id="est-dist-produto" onchange="estDistAtualizarSaldo()" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;background:var(--card);color:var(--text);margin-bottom:6px;">
+          <option value="">Selecionar produto...</option>
+        </select>
+        <div id="est-dist-saldo-fab" style="font-size:.8rem;font-weight:700;color:var(--primary);margin-bottom:14px;min-height:18px;"></div>
+
+        <!-- Destino — botões visuais -->
+        <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:8px;">Destino</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <button id="est-dist-btn-BOXA" onclick="estDistSelecionarDest('BOX A')" style="padding:12px 8px;border:2px solid var(--border);border-radius:12px;font-size:.82rem;font-weight:700;cursor:pointer;background:var(--card);color:var(--text);transition:.15s;">📦 Box A</button>
+          <button id="est-dist-btn-BOXV" onclick="estDistSelecionarDest('BOX V')" style="padding:12px 8px;border:2px solid var(--border);border-radius:12px;font-size:.82rem;font-weight:700;cursor:pointer;background:var(--card);color:var(--text);transition:.15s;">📦 Box V</button>
+          <button id="est-dist-btn-BOXO" onclick="estDistSelecionarDest('BOX O')" style="padding:12px 8px;border:2px solid var(--border);border-radius:12px;font-size:.82rem;font-weight:700;cursor:pointer;background:var(--card);color:var(--text);transition:.15s;">📦 Box O</button>
+          <button id="est-dist-btn-LOJA" onclick="estDistSelecionarDest('LOJA')" style="padding:12px 8px;border:2px solid var(--border);border-radius:12px;font-size:.82rem;font-weight:700;cursor:pointer;background:var(--card);color:var(--text);transition:.15s;">🏪 Loja</button>
+        </div>
+        <input type="hidden" id="est-dist-destino" value="">
+
+        <!-- Quantidade -->
+        <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Quantidade</label>
+        <input type="number" id="est-dist-qtd" min="1" placeholder="0" oninput="estDistAtualizarSaldo()" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;margin-bottom:6px;">
+        <div id="est-dist-aviso" style="font-size:.78rem;color:#ef4444;margin-bottom:10px;min-height:16px;"></div>
+
+        <!-- Observação -->
+        <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Observação (opcional)</label>
+        <input type="text" id="est-dist-obs" placeholder="Ex: Envio semana 46..." style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;margin-bottom:14px;">
+
+        <button onclick="estConfirmarDistribuicao()" class="btn btn-primary" style="width:100%;font-size:.95rem;">🚚 Confirmar Distribuição</button>
+      </div>
     </div>
 
     <!-- ABA TRANSFERIR -->
@@ -3975,7 +4012,7 @@ function estPopularProdutos() {
 }
 
 function estAba(aba) {
-  ['painel','transferir'].forEach(a => {
+  ['painel','distribuir','transferir'].forEach(a => {
     const el = document.getElementById('est-aba-' + a);
     const btn = document.getElementById('est-tab-' + a);
     if (el) el.style.display = a === aba ? '' : 'none';
@@ -3985,7 +4022,85 @@ function estAba(aba) {
     }
   });
   if (aba === 'painel') estRenderPainel();
+  if (aba === 'distribuir') { estDistInit(); }
   if (aba === 'transferir') { estPopularProdutos(); estVerificarSaldo(); }
+}
+
+let _estDistDest = '';
+function estDistInit() {
+  const prods = produtos || [];
+  const opts = '<option value="">Selecionar produto...</option>' + prods.map(p => `<option value="${p.nome}">${p.nome}</option>`).join('');
+  const sel = document.getElementById('est-dist-produto'); if (sel) sel.innerHTML = opts;
+  _estDistDest = '';
+  ['BOXA','BOXV','BOXO','LOJA'].forEach(k => {
+    const b = document.getElementById('est-dist-btn-' + k);
+    if (b) { b.style.background = 'var(--card)'; b.style.color = 'var(--text)'; b.style.borderColor = 'var(--border)'; }
+  });
+  const di = document.getElementById('est-dist-destino'); if (di) di.value = '';
+  const qi = document.getElementById('est-dist-qtd'); if (qi) qi.value = '';
+  const oi = document.getElementById('est-dist-obs'); if (oi) oi.value = '';
+  const sf = document.getElementById('est-dist-saldo-fab'); if (sf) sf.textContent = '';
+  const av = document.getElementById('est-dist-aviso'); if (av) av.textContent = '';
+  const hoje = new Date().toISOString().slice(0,10);
+  const dt = document.getElementById('est-trf-data'); if (dt) dt.value = hoje;
+}
+
+function estDistSelecionarDest(dest) {
+  _estDistDest = dest;
+  const map = {'BOX A':'BOXA','BOX V':'BOXV','BOX O':'BOXO','LOJA':'LOJA'};
+  ['BOXA','BOXV','BOXO','LOJA'].forEach(k => {
+    const b = document.getElementById('est-dist-btn-' + k);
+    if (!b) return;
+    const sel = map[dest] === k;
+    b.style.background = sel ? 'var(--primary)' : 'var(--card)';
+    b.style.color = sel ? '#fff' : 'var(--text)';
+    b.style.borderColor = sel ? 'var(--primary)' : 'var(--border)';
+  });
+  const di = document.getElementById('est-dist-destino'); if (di) di.value = dest;
+  estDistAtualizarSaldo();
+}
+
+function estDistAtualizarSaldo() {
+  const prod = document.getElementById('est-dist-produto')?.value;
+  const qtd = parseInt(document.getElementById('est-dist-qtd')?.value) || 0;
+  const sf = document.getElementById('est-dist-saldo-fab');
+  const av = document.getElementById('est-dist-aviso');
+  if (!prod) { if (sf) sf.textContent = ''; return; }
+  const saldo = estSaldoFabrica(prod);
+  if (sf) sf.innerHTML = `Disponível na Fábrica: <span style="color:${saldo > 0 ? 'var(--primary)' : '#ef4444'}">${saldo} un.</span>`;
+  if (av && qtd > 0) {
+    av.textContent = qtd > saldo ? '⚠️ Quantidade maior que o saldo disponível' : '';
+  } else if (av) av.textContent = '';
+}
+
+function estConfirmarDistribuicao() {
+  const prod = document.getElementById('est-dist-produto')?.value;
+  const dest = _estDistDest;
+  const qtd = parseInt(document.getElementById('est-dist-qtd')?.value) || 0;
+  const obs = document.getElementById('est-dist-obs')?.value.trim() || '';
+  if (!prod) { toast('⚠️ Selecione o produto'); return; }
+  if (!dest) { toast('⚠️ Selecione o destino'); return; }
+  if (qtd <= 0) { toast('⚠️ Informe a quantidade'); return; }
+  const saldo = estSaldoFabrica(prod);
+  if (qtd > saldo) { toast('⚠️ Saldo insuficiente na Fábrica (' + saldo + ' un.)'); return; }
+  const hoje = new Date().toISOString().slice(0, 10);
+  const mov = {
+    id: 'em_' + Date.now(),
+    tipo: 'transferencia',
+    data: hoje,
+    produto: prod,
+    qtd,
+    destino: dest,
+    obs: obs || 'Distribuição Fábrica → ' + dest,
+    created_at: Date.now()
+  };
+  est_movimentos.unshift(mov);
+  estSalvarLocal();
+  estSyncNuvem(mov);
+  const nomes = {'BOX A':'Box A','BOX V':'Box V','BOX O':'Box O','LOJA':'Loja'};
+  toast('✅ ' + qtd + ' un. de ' + prod + ' → ' + (nomes[dest] || dest));
+  estDistInit();
+  estAba('painel');
 }
 
 function estSaldos() {
