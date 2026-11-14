@@ -1946,11 +1946,23 @@ function renderSelectProdutosCadastro() {
 }
 
 function deletarProduto(id) {
+  const prod = produtos.find(p => p.id === id);
+  const nomeProd = prod ? prod.nome : null;
+
   produtos = produtos.filter(p => p.id !== id);
   save('produtos_app', produtos);
   sbDelete('produtos', id);
+
+  // Remove todos os movimentos de estoque desse produto
+  if (nomeProd) {
+    const removidos = est_movimentos.filter(m => m.produto === nomeProd);
+    est_movimentos = est_movimentos.filter(m => m.produto !== nomeProd);
+    estSalvarLocal();
+    removidos.forEach(m => estExcluirNuvem(m.id));
+  }
+
   renderProdutos();
-  toast('🗑️ Produto removido');
+  toast('🗑️ Produto e estoque removidos');
 }
 
 function renderProdutos() {
