@@ -1695,6 +1695,26 @@ function registrarVenda() {
     }
   }
 
+  // Baixa automática no estoque do estabelecimento (Box A/V/O ou Loja)
+  const localVenda = venda.estabelecimento;
+  const EST_LOCAIS_VENDA = ['LOJA','BOX A','BOX V','BOX O'];
+  if (localVenda && EST_LOCAIS_VENDA.includes(localVenda)) {
+    const saida = {
+      id: 'em_' + Date.now() + '_s',
+      tipo: 'saida',
+      data: venda.data,
+      produto: venda.nome,
+      qtd: venda.qtd,
+      destino: localVenda,
+      obs: 'Venda automática — ' + (venda.vendedor || 'sem vendedor'),
+      venda_id: venda.id,
+      created_at: Date.now()
+    };
+    est_movimentos.unshift(saida);
+    estSalvarLocal();
+    estSyncNuvem(saida);
+  }
+
   // reset
   document.getElementById('v-nome').value = '';
   document.getElementById('v-produto').value = '';
@@ -1758,6 +1778,13 @@ function renderHistorico(filtro) {
 }
 
 function deletarVenda(id) {
+  // Remove saída de estoque vinculada a essa venda
+  const saidaVinc = est_movimentos.filter(m => m.venda_id === id);
+  if (saidaVinc.length) {
+    est_movimentos = est_movimentos.filter(m => m.venda_id !== id);
+    estSalvarLocal();
+    saidaVinc.forEach(m => estExcluirNuvem(m.id));
+  }
   vendas = vendas.filter(v => v.id !== id);
   save('vendas_app', vendas);
   sbDelete('vendas', id);
@@ -4128,6 +4155,10 @@ function estSaldos() {
       saldos['FÁBRICA'][m.produto] = (saldos['FÁBRICA'][m.produto] || 0) - m.qtd;
       saldos[m.destino] = saldos[m.destino] || {};
       saldos[m.destino][m.produto] = (saldos[m.destino][m.produto] || 0) + m.qtd;
+    } else if (m.tipo === 'saida') {
+      const local = m.destino || 'FÁBRICA';
+      if (!saldos[local]) saldos[local] = {};
+      saldos[local][m.produto] = (saldos[local][m.produto] || 0) - m.qtd;
     }
   });
   return saldos;
@@ -4228,9 +4259,11 @@ function estRenderPainel() {
     } else {
       const fmtD = d => { if(!d) return ''; const [y,m,dia] = d.split('-'); return `${dia}/${m}/${y}`; };
       mEl.innerHTML = est_movimentos.slice(0, 20).map(m => {
-        const icoTipo = m.tipo === 'entrada' ? '📥' : '🔄';
+        const icoTipo = m.tipo === 'entrada' ? '📥' : m.tipo === 'saida' ? '🛒' : '🔄';
         const desc = m.tipo === 'entrada'
-          ? `Entrada Fábrica: <b>+${m.qtd}</b> ${m.produto}`
+          ? `Entrada ${m.destino||'Fábrica'}: <b>+${m.qtd}</b> ${m.produto}`
+          : m.tipo === 'saida'
+          ? `Venda ${m.destino}: <b style="color:#ef4444;">-${m.qtd}</b> ${m.produto}`
           : `Fábrica → ${m.destino}: <b>${m.qtd}</b> ${m.produto}`;
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;">
           <div style="font-size:1.1rem;">${icoTipo}</div>
@@ -4253,15 +4286,13 @@ function estZerarLocal(local) {
   if (total === 0) { toast('ℹ️ ' + nome + ' já está vazio'); return; }
   if (!confirm(`Zerar estoque de ${nome}?\n${total} unidade(s) serão removidas.\n\nEssa ação não pode ser desfeita.`)) return;
 
-  // Remove todos os movimentos que alimentaram esse local
-  const removidos = est_movimentos.filter(m =>
-    (m.tipo === 'entrada' && (m.destino || 'FÁBRICA') === local) ||
-    (m.tipo === 'transferencia' && m.destino === local)
-  );
-  est_movimentos = est_movimentos.filter(m =>
-    !((m.tipo === 'entrada' && (m.destino || 'FÁBRICA') === local) ||
-      (m.tipo === 'transferencia' && m.destino === local))
-  );
+  // Remove todos os movimentos que afetaram esse local
+  const pertenceAoLocal = m =>
+    (m.tipo === 'entrada'      && (m.destino || 'FÁBRICA') === local) ||
+    (m.tipo === 'transferencia' && m.destino === local) ||
+    (m.tipo === 'saida'         && (m.destino || 'FÁBRICA') === local);
+  const removidos = est_movimentos.filter(pertenceAoLocal);
+  est_movimentos  = est_movimentos.filter(m => !pertenceAoLocal(m));
   estSalvarLocal();
   removidos.forEach(m => estExcluirNuvem(m.id));
   toast('🗑️ Estoque de ' + nome + ' zerado');
