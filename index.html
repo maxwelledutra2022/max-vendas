@@ -4203,9 +4203,7 @@ function estRenderPainel() {
         const detalhes = todosProd.filter(p => sLocal[p] > 0).map(p =>
           `<span style="font-size:.72rem;background:#f1f5f9;border-radius:6px;padding:3px 8px;">${p}: <b>${sLocal[p]}</b></span>`
         ).join(' ');
-        const btnZerar = local !== 'FÁBRICA'
-          ? `<button onclick="estZerarLocal('${local}')" style="padding:3px 10px;border:1px solid #ef4444;border-radius:7px;background:transparent;color:#ef4444;font-size:.72rem;font-weight:700;cursor:pointer;">🗑️ Zerar</button>`
-          : '';
+        const btnZerar = `<button onclick="estZerarLocal('${local}')" style="padding:3px 10px;border:1px solid #ef4444;border-radius:7px;background:transparent;color:#ef4444;font-size:.72rem;font-weight:700;cursor:pointer;">🗑️ Zerar</button>`;
         return `<div class="card" style="padding:12px 14px;border-left:4px solid ${EST_COR[local]||'#94a3b8'};">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div style="font-weight:800;font-size:.9rem;">${local}</div>
