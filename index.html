@@ -1828,6 +1828,23 @@ function adicionarProduto() {
   save('produtos_app', produtos);
   sbUpsert('produtos', novoProduto);
 
+  // Se tiver quantidade, cria entrada automática na fábrica
+  if (estoque > 0) {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const entradaAuto = {
+      id: 'em_' + Date.now(),
+      tipo: 'entrada',
+      data: hoje,
+      produto: nome,
+      qtd: estoque,
+      obs: 'Entrada automática — cadastro do produto',
+      created_at: Date.now()
+    };
+    est_movimentos.unshift(entradaAuto);
+    estSalvarLocal();
+    estSyncNuvem(entradaAuto);
+  }
+
   sel.value = '';
   document.getElementById('p-categoria').value = '';
   document.getElementById('p-tamanho').value = '';
@@ -1840,7 +1857,11 @@ function adicionarProduto() {
   document.querySelectorAll('.tamanho-opt').forEach(b => b.classList.remove('ativo'));
 
   renderProdutos();
-  toast('📦 Produto adicionado ao catálogo!');
+  if (estoque > 0) {
+    toast('📦 Produto adicionado! ' + estoque + ' un. → Fábrica');
+  } else {
+    toast('📦 Produto adicionado ao catálogo!');
+  }
 }
 
 // ---- BASE DE NOMES ----
