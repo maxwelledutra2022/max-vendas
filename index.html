@@ -1220,6 +1220,132 @@ ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
   </div>
 </div>
 
+<!-- ===== SCREEN ONLINE ===== -->
+<div class="screen" id="screen-online">
+  <div class="topbar">
+    <div>
+      <div style="font-weight:800;font-size:1rem;">💬 Vendas Online</div>
+      <div class="date" id="topDate-online"></div>
+    </div>
+    <div id="sync-status-online" style="font-size:.7rem;color:#bfdbfe;"></div>
+  </div>
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px;padding-bottom:90px;">
+
+    <!-- Tabs internas -->
+    <div style="display:flex;gap:6px;background:#f1f5f9;border-radius:12px;padding:4px;">
+      <button id="onl-tab-pedidos" onclick="onlAba('pedidos')" style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:.72rem;font-weight:700;cursor:pointer;background:var(--primary);color:#fff;">📋 Pedidos</button>
+      <button id="onl-tab-novo" onclick="onlAba('novo')" style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:.72rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">➕ Novo</button>
+      <button id="onl-tab-relatorio" onclick="onlAba('relatorio')" style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:.72rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">📊 Relatório</button>
+    </div>
+
+    <!-- ABA PEDIDOS -->
+    <div id="onl-aba-pedidos">
+      <!-- Filtros de status -->
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;margin-bottom:10px;">
+        <button onclick="onlFiltrar('todos')" id="onl-f-todos" style="padding:6px 14px;border:1.5px solid var(--primary);border-radius:20px;font-size:.75rem;font-weight:700;background:var(--primary);color:#fff;white-space:nowrap;cursor:pointer;">Todos</button>
+        <button onclick="onlFiltrar('pendente')" id="onl-f-pendente" style="padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;font-size:.75rem;font-weight:700;background:var(--card);color:var(--muted);white-space:nowrap;cursor:pointer;">💰 Pend. Pgto</button>
+        <button onclick="onlFiltrar('separar')" id="onl-f-separar" style="padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;font-size:.75rem;font-weight:700;background:var(--card);color:var(--muted);white-space:nowrap;cursor:pointer;">📦 Separar</button>
+        <button onclick="onlFiltrar('enviar')" id="onl-f-enviar" style="padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;font-size:.75rem;font-weight:700;background:var(--card);color:var(--muted);white-space:nowrap;cursor:pointer;">🚚 Enviar</button>
+        <button onclick="onlFiltrar('concluido')" id="onl-f-concluido" style="padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;font-size:.75rem;font-weight:700;background:var(--card);color:var(--muted);white-space:nowrap;cursor:pointer;">✅ Concluídos</button>
+      </div>
+
+      <!-- Stats rápidos -->
+      <div id="onl-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;"></div>
+
+      <!-- Lista de pedidos -->
+      <div id="onl-lista-pedidos"></div>
+    </div>
+
+    <!-- ABA NOVO PEDIDO -->
+    <div id="onl-aba-novo" style="display:none;">
+      <div class="card">
+        <div style="font-weight:800;font-size:.95rem;margin-bottom:14px;">📝 Novo Pedido</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:.75rem;font-weight:700;display:block;margin-bottom:4px;">Data do Pedido</label>
+            <input type="date" id="onl-data" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.85rem;">
+          </div>
+          <div>
+            <label style="font-size:.75rem;font-weight:700;display:block;margin-bottom:4px;">Nº Pedido</label>
+            <input type="text" id="onl-num" placeholder="Auto" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.85rem;" readonly>
+          </div>
+        </div>
+
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.75rem;font-weight:700;display:block;margin-bottom:4px;">Cliente *</label>
+          <input type="text" id="onl-cliente" placeholder="Nome completo" autocomplete="off" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:.75rem;font-weight:700;display:block;margin-bottom:4px;">WhatsApp</label>
+            <input type="tel" id="onl-fone" placeholder="(11) 99999-9999" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.85rem;">
+          </div>
+          <div>
+            <label style="font-size:.75rem;font-weight:700;display:block;margin-bottom:4px;">Cidade/UF</label>
+            <input type="text" id="onl-cidade" placeholder="São Paulo/SP" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.85rem;">
+          </div>
+        </div>
+
+        <!-- Itens do pedido -->
+        <div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;border-top:1px solid var(--border);padding-top:10px;">PRODUTOS</div>
+        <div id="onl-itens-container"></div>
+        <button onclick="onlAdicionarItem()" style="width:100%;padding:8px;border:1.5px dashed var(--border);border-radius:10px;background:transparent;color:var(--primary);font-weight:700;font-size:.82rem;cursor:pointer;margin-bottom:10px;">+ Adicionar produto</button>
+
+        <div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;border-top:1px solid var(--border);padding-top:10px;">PAGAMENTO</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:.75rem;font-weight:700;display:block;margin-bottom:4px;">Forma</label>
+            <select id="onl-pgto-forma" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.85rem;background:var(--card);">
+              <option value="">Selecionar...</option>
+              <option>PIX</option>
+              <option>Cartão Crédito</option>
+              <option>Cartão Débito</option>
+              <option>Boleto</option>
+              <option>Dinheiro</option>
+              <option>Transferência</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:.75rem;font-weight:700;display:block;margin-bottom:4px;">Status</label>
+            <select id="onl-pgto-status" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.85rem;background:var(--card);">
+              <option value="pendente">💰 Pendente</option>
+              <option value="pago">✅ Pago</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="background:#f0fdf4;border-radius:10px;padding:10px 14px;margin-bottom:14px;text-align:center;">
+          <div style="font-size:.8rem;color:var(--muted);">TOTAL DO PEDIDO</div>
+          <div id="onl-total-preview" style="font-size:1.5rem;font-weight:900;color:var(--success);">R$ 0,00</div>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <label style="font-size:.75rem;font-weight:700;display:block;margin-bottom:4px;">Observação</label>
+          <textarea id="onl-obs" rows="2" placeholder="Cor, tamanho, instruções especiais..." style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.85rem;resize:none;font-family:inherit;"></textarea>
+        </div>
+
+        <button onclick="onlSalvarPedido()" class="btn btn-primary" style="width:100%;font-size:.95rem;">💾 Salvar Pedido</button>
+      </div>
+    </div>
+
+    <!-- ABA RELATÓRIO -->
+    <div id="onl-aba-relatorio" style="display:none;">
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;">
+        <select id="onl-rel-mes" onchange="onlRenderRelatorio()" style="flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;background:var(--card);">
+        </select>
+        <select id="onl-rel-ano" onchange="onlRenderRelatorio()" style="width:80px;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:.88rem;background:var(--card);">
+        </select>
+      </div>
+      <div id="onl-rel-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;"></div>
+      <div id="onl-rel-produtos" style="margin-bottom:14px;"></div>
+      <div id="onl-rel-pgto" style="margin-bottom:14px;"></div>
+    </div>
+
+  </div>
+</div>
+<!-- ===== FIM SCREEN ONLINE ===== -->
+
 <nav class="bottom-nav">
   <button class="nav-btn active" onclick="goScreen('dashboard',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -1405,6 +1531,7 @@ function goScreen(name, btn) {
     }
     estInit();
   }
+  if (name === 'online') { onlInicializar(); }
   if (name === 'corte') {
     if (!modoAdmin) {
       // Voltar para a tela anterior e pedir login admin
@@ -4379,6 +4506,383 @@ function estZerarLocal(local) {
   estRenderPainel();
 }
 
+// ======================================================
+// MÓDULO VENDAS ONLINE
+// ======================================================
+let onl_pedidos = JSON.parse(localStorage.getItem('onl_pedidos') || '[]');
+let onl_filtro_atual = 'todos';
+let onl_itens_count = 0;
+let onl_aba_atual = 'pedidos';
+
+function onlSalvarLocal() {
+  localStorage.setItem('onl_pedidos', JSON.stringify(onl_pedidos));
+}
+
+function onlProximoNumero() {
+  const nums = onl_pedidos.map(p => parseInt(p.numero || '0')).filter(n => !isNaN(n));
+  return String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, '0');
+}
+
+function onlAba(aba) {
+  onl_aba_atual = aba;
+  ['pedidos','novo','relatorio'].forEach(a => {
+    document.getElementById('onl-aba-' + a).style.display = a === aba ? '' : 'none';
+    const btn = document.getElementById('onl-tab-' + a);
+    if (btn) {
+      btn.style.background = a === aba ? 'var(--primary)' : 'transparent';
+      btn.style.color = a === aba ? '#fff' : 'var(--muted)';
+    }
+  });
+  if (aba === 'novo') onlIniciarFormulario();
+  if (aba === 'relatorio') onlRenderRelatorio();
+  if (aba === 'pedidos') onlRenderLista();
+}
+
+function onlIniciarFormulario(pedidoEditar) {
+  const hoje = new Date().toISOString().slice(0,10);
+  document.getElementById('onl-data').value = pedidoEditar ? pedidoEditar.data : hoje;
+  document.getElementById('onl-num').value = pedidoEditar ? pedidoEditar.numero : onlProximoNumero();
+  document.getElementById('onl-cliente').value = pedidoEditar ? pedidoEditar.cliente : '';
+  document.getElementById('onl-fone').value = pedidoEditar ? pedidoEditar.fone : '';
+  document.getElementById('onl-cidade').value = pedidoEditar ? pedidoEditar.cidade : '';
+  document.getElementById('onl-pgto-forma').value = pedidoEditar ? pedidoEditar.pgto_forma : '';
+  document.getElementById('onl-pgto-status').value = pedidoEditar ? pedidoEditar.pgto_status : 'pendente';
+  document.getElementById('onl-obs').value = pedidoEditar ? (pedidoEditar.obs || '') : '';
+  // Itens
+  const cont = document.getElementById('onl-itens-container');
+  cont.innerHTML = '';
+  onl_itens_count = 0;
+  if (pedidoEditar && pedidoEditar.itens && pedidoEditar.itens.length) {
+    pedidoEditar.itens.forEach(it => onlAdicionarItem(it));
+  } else {
+    onlAdicionarItem();
+  }
+  // Guardar id em edição
+  document.getElementById('onl-aba-novo').dataset.editId = pedidoEditar ? pedidoEditar.id : '';
+  onlAtualizarTotal();
+}
+
+function onlAdicionarItem(item) {
+  const idx = onl_itens_count++;
+  const cont = document.getElementById('onl-itens-container');
+  const div = document.createElement('div');
+  div.id = 'onl-item-' + idx;
+  div.style.cssText = 'background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;';
+  const nomePrds = (typeof produtos !== 'undefined' ? produtos : []).map(p => `<option value="${p.nome}" data-preco="${p.preco||0}">${p.nome}</option>`).join('');
+  div.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:.75rem;font-weight:700;color:var(--muted);">PRODUTO ${idx+1}</span>
+      ${idx > 0 ? `<button onclick="document.getElementById('onl-item-${idx}').remove();onlAtualizarTotal();" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;">✕</button>` : ''}
+    </div>
+    <select id="onl-it-prod-${idx}" onchange="onlProdutoSelecionado(${idx})" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;font-size:.85rem;background:var(--card);margin-bottom:6px;">
+      <option value="">Produto...</option>
+      ${nomePrds}
+      <option value="__outro">Outro (digitar)</option>
+    </select>
+    <input type="text" id="onl-it-desc-${idx}" placeholder="Descrição / Cor / Tamanho" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;font-size:.82rem;margin-bottom:6px;" oninput="onlAtualizarTotal()">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+      <div>
+        <label style="font-size:.7rem;font-weight:700;display:block;margin-bottom:3px;">Qtd</label>
+        <input type="number" id="onl-it-qtd-${idx}" value="1" min="1" style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:9px;font-size:.85rem;" oninput="onlAtualizarTotal()">
+      </div>
+      <div>
+        <label style="font-size:.7rem;font-weight:700;display:block;margin-bottom:3px;">V. Unit (R$)</label>
+        <input type="number" id="onl-it-vunit-${idx}" step="0.01" placeholder="0,00" style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:9px;font-size:.85rem;" oninput="onlAtualizarTotal()">
+      </div>
+      <div>
+        <label style="font-size:.7rem;font-weight:700;display:block;margin-bottom:3px;">Total</label>
+        <div id="onl-it-total-${idx}" style="padding:7px 8px;background:#f1f5f9;border-radius:9px;font-size:.85rem;font-weight:700;color:var(--success);">R$ 0,00</div>
+      </div>
+    </div>`;
+  cont.appendChild(div);
+  if (item) {
+    const sel = document.getElementById('onl-it-prod-' + idx);
+    // Tenta selecionar produto pelo nome
+    let found = false;
+    for (let opt of sel.options) { if (opt.value === item.produto) { sel.value = item.produto; found = true; break; } }
+    if (!found) sel.value = '__outro';
+    document.getElementById('onl-it-desc-' + idx).value = item.descricao || '';
+    document.getElementById('onl-it-qtd-' + idx).value = item.qtd || 1;
+    document.getElementById('onl-it-vunit-' + idx).value = item.vunit || '';
+    onlAtualizarTotal();
+  }
+}
+
+function onlProdutoSelecionado(idx) {
+  const sel = document.getElementById('onl-it-prod-' + idx);
+  const opt = sel.selectedOptions[0];
+  if (opt && opt.dataset.preco) {
+    document.getElementById('onl-it-vunit-' + idx).value = parseFloat(opt.dataset.preco).toFixed(2);
+  }
+  onlAtualizarTotal();
+}
+
+function onlColetarItens() {
+  const itens = [];
+  const cont = document.getElementById('onl-itens-container');
+  const divs = cont.querySelectorAll('[id^="onl-item-"]');
+  divs.forEach(div => {
+    const idx = div.id.replace('onl-item-','');
+    const sel = document.getElementById('onl-it-prod-'+idx);
+    const produto = sel ? sel.value : '';
+    const descricao = document.getElementById('onl-it-desc-'+idx)?.value || '';
+    const qtd = parseFloat(document.getElementById('onl-it-qtd-'+idx)?.value) || 0;
+    const vunit = parseFloat(document.getElementById('onl-it-vunit-'+idx)?.value) || 0;
+    if (qtd > 0) itens.push({ produto: produto === '__outro' ? descricao : produto, descricao, qtd, vunit, vtotal: qtd * vunit });
+  });
+  return itens;
+}
+
+function onlAtualizarTotal() {
+  const itens = onlColetarItens();
+  const total = itens.reduce((s, it) => s + it.vtotal, 0);
+  document.getElementById('onl-total-preview').textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+  // Atualiza totais por item
+  const cont = document.getElementById('onl-itens-container');
+  const divs = cont.querySelectorAll('[id^="onl-item-"]');
+  divs.forEach(div => {
+    const idx = div.id.replace('onl-item-','');
+    const qtd = parseFloat(document.getElementById('onl-it-qtd-'+idx)?.value) || 0;
+    const vunit = parseFloat(document.getElementById('onl-it-vunit-'+idx)?.value) || 0;
+    const tEl = document.getElementById('onl-it-total-'+idx);
+    if (tEl) tEl.textContent = 'R$ ' + (qtd*vunit).toFixed(2).replace('.', ',');
+  });
+}
+
+function onlSalvarPedido() {
+  const cliente = document.getElementById('onl-cliente').value.trim();
+  if (!cliente) { toast('⚠️ Informe o nome do cliente'); return; }
+  const itens = onlColetarItens();
+  if (!itens.length) { toast('⚠️ Adicione pelo menos um produto'); return; }
+  const editId = document.getElementById('onl-aba-novo').dataset.editId;
+  const pedido = {
+    id: editId || ('onl_' + Date.now()),
+    numero: document.getElementById('onl-num').value,
+    data: document.getElementById('onl-data').value,
+    cliente,
+    fone: document.getElementById('onl-fone').value.trim(),
+    cidade: document.getElementById('onl-cidade').value.trim(),
+    itens,
+    total: itens.reduce((s,i) => s+i.vtotal, 0),
+    pgto_forma: document.getElementById('onl-pgto-forma').value,
+    pgto_status: document.getElementById('onl-pgto-status').value,
+    separado: editId ? (onl_pedidos.find(p=>p.id===editId)?.separado || false) : false,
+    enviado: editId ? (onl_pedidos.find(p=>p.id===editId)?.enviado || false) : false,
+    rastreio: editId ? (onl_pedidos.find(p=>p.id===editId)?.rastreio || '') : '',
+    obs: document.getElementById('onl-obs').value.trim(),
+    criado_em: editId ? (onl_pedidos.find(p=>p.id===editId)?.criado_em || new Date().toISOString()) : new Date().toISOString(),
+  };
+  if (editId) {
+    const idx = onl_pedidos.findIndex(p => p.id === editId);
+    if (idx >= 0) onl_pedidos[idx] = pedido; else onl_pedidos.unshift(pedido);
+  } else {
+    onl_pedidos.unshift(pedido);
+  }
+  onlSalvarLocal();
+  toast(editId ? '✅ Pedido atualizado!' : '✅ Pedido salvo!');
+  onlAba('pedidos');
+}
+
+function onlFiltrar(f) {
+  onl_filtro_atual = f;
+  ['todos','pendente','separar','enviar','concluido'].forEach(x => {
+    const btn = document.getElementById('onl-f-' + x);
+    if (!btn) return;
+    btn.style.background = x === f ? 'var(--primary)' : 'var(--card)';
+    btn.style.color = x === f ? '#fff' : 'var(--muted)';
+    btn.style.borderColor = x === f ? 'var(--primary)' : 'var(--border)';
+  });
+  onlRenderLista();
+}
+
+function onlPedidosFiltrados() {
+  return onl_pedidos.filter(p => {
+    if (onl_filtro_atual === 'todos') return true;
+    if (onl_filtro_atual === 'pendente') return p.pgto_status === 'pendente';
+    if (onl_filtro_atual === 'separar') return p.pgto_status === 'pago' && !p.separado;
+    if (onl_filtro_atual === 'enviar') return p.separado && !p.enviado;
+    if (onl_filtro_atual === 'concluido') return p.enviado;
+    return true;
+  });
+}
+
+function onlRenderStats() {
+  const todos = onl_pedidos;
+  const pendentes = todos.filter(p => p.pgto_status === 'pendente').length;
+  const separar = todos.filter(p => p.pgto_status === 'pago' && !p.separado).length;
+  const enviar = todos.filter(p => p.separado && !p.enviado).length;
+  const el = document.getElementById('onl-stats');
+  if (!el) return;
+  el.innerHTML = `
+    <div style="background:#fef9c3;border-radius:10px;padding:8px;text-align:center;cursor:pointer;" onclick="onlFiltrar('pendente')">
+      <div style="font-size:1.1rem;font-weight:900;color:#ca8a04;">${pendentes}</div>
+      <div style="font-size:.65rem;color:#a16207;">Pend. Pgto</div>
+    </div>
+    <div style="background:#ede9fe;border-radius:10px;padding:8px;text-align:center;cursor:pointer;" onclick="onlFiltrar('separar')">
+      <div style="font-size:1.1rem;font-weight:900;color:#7c3aed;">${separar}</div>
+      <div style="font-size:.65rem;color:#6d28d9;">Para Separar</div>
+    </div>
+    <div style="background:#dbeafe;border-radius:10px;padding:8px;text-align:center;cursor:pointer;" onclick="onlFiltrar('enviar')">
+      <div style="font-size:1.1rem;font-weight:900;color:#1d4ed8;">${enviar}</div>
+      <div style="font-size:.65rem;color:#1e40af;">Para Enviar</div>
+    </div>`;
+}
+
+function onlRenderLista() {
+  onlRenderStats();
+  const lista = onlPedidosFiltrados();
+  const el = document.getElementById('onl-lista-pedidos');
+  if (!el) return;
+  if (!lista.length) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:.9rem;">Nenhum pedido encontrado</div>';
+    return;
+  }
+  const fmtD = d => { if(!d) return ''; const [y,m,dia] = d.split('-'); return `${dia}/${m}/${y}`; };
+  const fmtV = v => 'R$ ' + (v||0).toFixed(2).replace('.',',');
+  el.innerHTML = lista.map(p => {
+    const statusPgto = p.pgto_status === 'pago'
+      ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700;">✅ Pago</span>'
+      : '<span style="background:#fef9c3;color:#ca8a04;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700;">💰 Pendente</span>';
+    const statusSep = p.separado
+      ? '<span style="background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700;">📦 Separado</span>'
+      : '';
+    const statusEnv = p.enviado
+      ? '<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700;">🚚 Enviado</span>'
+      : '';
+    const prodResumo = p.itens ? p.itens.map(it => `${it.produto||it.descricao} x${it.qtd}`).join(', ') : '';
+    const foneLink = p.fone ? `<a href="https://wa.me/55${p.fone.replace(/\D/g,'')}" target="_blank" style="font-size:.72rem;color:#16a34a;text-decoration:none;font-weight:700;">💬 WhatsApp</a>` : '';
+    return `<div style="background:var(--card);border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:var(--shadow);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <div style="font-weight:800;font-size:.95rem;">${p.cliente}</div>
+          <div style="font-size:.72rem;color:var(--muted);">Pedido #${p.numero} · ${fmtD(p.data)}</div>
+        </div>
+        <div style="font-weight:900;font-size:1rem;color:var(--success);">${fmtV(p.total)}</div>
+      </div>
+      ${prodResumo ? `<div style="font-size:.78rem;color:var(--muted);margin-bottom:6px;">${prodResumo}</div>` : ''}
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${statusPgto}${statusSep}${statusEnv}</div>
+      ${p.rastreio ? `<div style="font-size:.72rem;color:var(--muted);">Rastreio: <b>${p.rastreio}</b></div>` : ''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+        ${foneLink}
+        ${p.pgto_status === 'pendente' ? `<button onclick="onlMarcarPago('${p.id}')" style="padding:4px 10px;border:none;border-radius:8px;background:#dcfce7;color:#15803d;font-size:.72rem;font-weight:700;cursor:pointer;">✅ Pago</button>` : ''}
+        ${!p.separado ? `<button onclick="onlMarcarSeparado('${p.id}')" style="padding:4px 10px;border:none;border-radius:8px;background:#ede9fe;color:#7c3aed;font-size:.72rem;font-weight:700;cursor:pointer;">📦 Separado</button>` : ''}
+        ${p.separado && !p.enviado ? `<button onclick="onlMarcarEnviado('${p.id}')" style="padding:4px 10px;border:none;border-radius:8px;background:#dbeafe;color:#1d4ed8;font-size:.72rem;font-weight:700;cursor:pointer;">🚚 Enviado</button>` : ''}
+        ${p.separado && !p.enviado ? `<button onclick="onlRastreioModal('${p.id}')" style="padding:4px 10px;border:none;border-radius:8px;background:#f1f5f9;color:var(--text);font-size:.72rem;font-weight:700;cursor:pointer;">📮 Rastreio</button>` : ''}
+        <button onclick="onlEditarPedido('${p.id}')" style="padding:4px 10px;border:none;border-radius:8px;background:#f1f5f9;color:var(--muted);font-size:.72rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
+        <button onclick="onlExcluirPedido('${p.id}')" style="padding:4px 10px;border:none;border-radius:8px;background:#fee2e2;color:#dc2626;font-size:.72rem;font-weight:700;cursor:pointer;">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function onlMarcarPago(id) {
+  const p = onl_pedidos.find(x => x.id === id);
+  if (p) { p.pgto_status = 'pago'; onlSalvarLocal(); onlRenderLista(); toast('✅ Pagamento confirmado!'); }
+}
+function onlMarcarSeparado(id) {
+  const p = onl_pedidos.find(x => x.id === id);
+  if (p) { p.separado = true; onlSalvarLocal(); onlRenderLista(); toast('📦 Pedido marcado como separado!'); }
+}
+function onlMarcarEnviado(id) {
+  const p = onl_pedidos.find(x => x.id === id);
+  if (p) { p.enviado = true; onlSalvarLocal(); onlRenderLista(); toast('🚚 Pedido marcado como enviado!'); }
+}
+function onlRastreioModal(id) {
+  const p = onl_pedidos.find(x => x.id === id);
+  const cod = prompt('Código de rastreio (Correios):', p?.rastreio || '');
+  if (cod !== null && p) { p.rastreio = cod.trim(); onlSalvarLocal(); onlRenderLista(); toast('📮 Código salvo!'); }
+}
+function onlEditarPedido(id) {
+  const p = onl_pedidos.find(x => x.id === id);
+  if (p) { onlAba('novo'); onlIniciarFormulario(p); }
+}
+function onlExcluirPedido(id) {
+  if (!confirm('Excluir este pedido?')) return;
+  onl_pedidos = onl_pedidos.filter(p => p.id !== id);
+  onlSalvarLocal(); onlRenderLista(); toast('🗑️ Pedido excluído');
+}
+
+function onlRenderRelatorio() {
+  const mesEl = document.getElementById('onl-rel-mes');
+  const anoEl = document.getElementById('onl-rel-ano');
+  if (!mesEl || !anoEl) return;
+  // Preencher opções se vazio
+  if (!mesEl.options.length) {
+    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    meses.forEach((m,i) => mesEl.add(new Option(m, String(i+1).padStart(2,'0'))));
+    mesEl.value = String(new Date().getMonth()+1).padStart(2,'0');
+  }
+  if (!anoEl.options.length) {
+    for (let y = 2024; y <= 2027; y++) anoEl.add(new Option(y, y));
+    anoEl.value = new Date().getFullYear();
+  }
+  const mes = mesEl.value;
+  const ano = anoEl.value;
+  const pedidos = onl_pedidos.filter(p => p.data && p.data.startsWith(ano + '-' + mes));
+  const total = pedidos.reduce((s,p) => s+p.total, 0);
+  const pagos = pedidos.filter(p => p.pgto_status === 'pago').reduce((s,p) => s+p.total, 0);
+  const pendentes = pedidos.filter(p => p.pgto_status === 'pendente').reduce((s,p) => s+p.total, 0);
+  const fmtV = v => 'R$ ' + v.toFixed(2).replace('.',',');
+
+  document.getElementById('onl-rel-stats').innerHTML = `
+    <div style="background:var(--card);border-radius:12px;padding:12px;text-align:center;box-shadow:var(--shadow);">
+      <div style="font-size:1.3rem;font-weight:900;color:var(--text);">${pedidos.length}</div>
+      <div style="font-size:.7rem;color:var(--muted);">Pedidos</div>
+    </div>
+    <div style="background:var(--card);border-radius:12px;padding:12px;text-align:center;box-shadow:var(--shadow);">
+      <div style="font-size:1.1rem;font-weight:900;color:var(--success);">${fmtV(total)}</div>
+      <div style="font-size:.7rem;color:var(--muted);">Total Bruto</div>
+    </div>
+    <div style="background:#dcfce7;border-radius:12px;padding:12px;text-align:center;grid-column:1;">
+      <div style="font-size:1rem;font-weight:900;color:#15803d;">${fmtV(pagos)}</div>
+      <div style="font-size:.7rem;color:#15803d;">✅ Pago</div>
+    </div>
+    <div style="background:#fef9c3;border-radius:12px;padding:12px;text-align:center;">
+      <div style="font-size:1rem;font-weight:900;color:#ca8a04;">${fmtV(pendentes)}</div>
+      <div style="font-size:.7rem;color:#ca8a04;">💰 A Receber</div>
+    </div>`;
+
+  // Resumo por produto
+  const porProd = {};
+  pedidos.forEach(p => (p.itens||[]).forEach(it => {
+    const nome = it.produto || it.descricao || '-';
+    if (!porProd[nome]) porProd[nome] = { qtd: 0, total: 0 };
+    porProd[nome].qtd += it.qtd;
+    porProd[nome].total += it.vtotal;
+  }));
+  const prods = Object.entries(porProd).sort((a,b) => b[1].total - a[1].total);
+  document.getElementById('onl-rel-produtos').innerHTML = `
+    <div style="font-weight:800;font-size:.9rem;margin-bottom:8px;">📦 Por Produto</div>
+    ${prods.length ? prods.map(([nome, v]) => `
+      <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:.85rem;">
+        <span>${nome} <span style="color:var(--muted);font-size:.75rem;">(${v.qtd} un.)</span></span>
+        <span style="font-weight:700;">${fmtV(v.total)}</span>
+      </div>`).join('') : '<div style="color:var(--muted);font-size:.82rem;">Sem dados</div>'}`;
+
+  // Por forma de pagamento
+  const porPgto = {};
+  pedidos.forEach(p => {
+    const f = p.pgto_forma || 'Não informado';
+    porPgto[f] = (porPgto[f]||0) + p.total;
+  });
+  const pgtos = Object.entries(porPgto).sort((a,b) => b[1]-a[1]);
+  document.getElementById('onl-rel-pgto').innerHTML = `
+    <div style="font-weight:800;font-size:.9rem;margin-bottom:8px;">💳 Por Pagamento</div>
+    ${pgtos.length ? pgtos.map(([forma, v]) => `
+      <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:.85rem;">
+        <span>${forma}</span>
+        <span style="font-weight:700;">${fmtV(v)}</span>
+      </div>`).join('') : '<div style="color:var(--muted);font-size:.82rem;">Sem dados</div>'}`;
+}
+
+function onlInicializar() {
+  const el = document.getElementById('topDate-online');
+  if (el) el.textContent = new Date().toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'short' });
+  onlRenderStats();
+  onlRenderLista();
+}
+
+// ======================================================
 // ---- INIT ----
 renderDashboard();
 atualizarBadgeVendedor();
