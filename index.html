@@ -260,6 +260,41 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   /* MODAL VENDEDOR */
+  /* TELA DE LOGIN */
+  #tela-login {
+    display: flex; position: fixed; inset: 0;
+    background: #000; z-index: 9999;
+    flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px 24px;
+  }
+  #tela-login.oculta { display: none; }
+  .login-logo {
+    width: 140px; height: 140px; border-radius: 50%;
+    object-fit: cover; margin-bottom: 28px;
+    box-shadow: 0 0 32px rgba(255,255,255,0.15);
+  }
+  .login-card {
+    background: #1a1a1a; border-radius: 20px;
+    padding: 28px 24px 32px; width: 100%; max-width: 380px;
+    border: 1px solid #333;
+  }
+  .login-card h2 { color: #fff; font-size: 1.1rem; font-weight: 800; text-align: center; margin-bottom: 4px; }
+  .login-card p { color: #888; font-size: .82rem; text-align: center; margin-bottom: 20px; }
+  .login-input {
+    width: 100%; padding: 14px 16px; border: 1.5px solid #333; border-radius: 12px;
+    background: #111; color: #fff; font-size: 1rem; margin-bottom: 10px;
+    box-sizing: border-box; outline: none;
+  }
+  .login-input::placeholder { color: #555; }
+  .login-input:focus { border-color: #c9a86c; }
+  .login-btn {
+    width: 100%; padding: 14px; background: #c9a86c; color: #000;
+    border: none; border-radius: 12px; font-size: 1rem; font-weight: 800;
+    cursor: pointer; margin-top: 4px; letter-spacing: .03em;
+  }
+  .login-btn:active { opacity: .85; }
+  .login-erro { font-size: .8rem; color: #ef4444; text-align: center; min-height: 18px; margin-bottom: 6px; }
+
   #vendedor-modal {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
     z-index: 400; align-items: flex-end; justify-content: center;
@@ -357,11 +392,28 @@
     <div class="topbar h1" style="font-size:1.1rem;font-weight:700;">🛒 Controle de Vendas</div>
     <div class="date" id="topDate"></div>
     <div id="sync-status">☁️ Sincronizando...</div>
-    <div id="vendedor-badge" onclick="abrirModal('vendedor-modal');renderVendedoresModal()">👤 <span id="vendedor-nome-badge">Selecionar</span></div>
+    <div id="vendedor-badge" onclick="mostrarTelaLogin()">👤 <span id="vendedor-nome-badge">Selecionar</span></div>
   </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
     <div style="font-size:1.5rem;" id="topTotal"></div>
     <button id="admin-btn" onclick="abrirAdmin()">🔒 Admin</button>
+  </div>
+</div>
+
+<!-- TELA DE LOGIN -->
+<div id="tela-login">
+  <img src="/icons/icon-192x192.png" class="login-logo" alt="Max Fashion" onerror="this.style.display='none'">
+  <div class="login-card">
+    <h2>Max Fashion</h2>
+    <p>Identifique-se para acessar o sistema</p>
+    <input class="login-input" type="text" id="login-nome-input" placeholder="Seu nome"
+      autocomplete="off" autocorrect="off" autocapitalize="words"
+      onkeydown="if(event.key==='Enter')document.getElementById('login-senha-input').focus()">
+    <input class="login-input" type="password" id="login-senha-input" placeholder="Senha (se tiver)"
+      autocomplete="off"
+      onkeydown="if(event.key==='Enter')fazerLogin()">
+    <div class="login-erro" id="login-erro-msg"></div>
+    <button class="login-btn" onclick="fazerLogin()">▶ Entrar</button>
   </div>
 </div>
 
@@ -596,7 +648,7 @@
   <div class="card">
     <div class="section-title">Vendedor Ativo neste Celular</div>
     <div id="vendedor-ativo-info" style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:12px;font-weight:700;font-size:1rem;">—</div>
-    <button class="btn btn-outline" onclick="abrirModal('vendedor-modal');renderVendedoresModal()" style="margin-top:0;">🔄 Trocar Vendedor</button>
+    <button class="btn btn-outline" onclick="mostrarTelaLogin()" style="margin-top:0;">🔄 Trocar Vendedor</button>
   </div>
 
   <div class="card">
@@ -1462,14 +1514,13 @@ async function inicializarDados() {
     atualizarBadgeVendedor();
     renderSelectProdutosCadastro();
     if (statusEl) { statusEl.textContent = '✅ Nuvem'; statusEl.style.color='#16a34a'; }
-    // Se não há vendedor selecionado e há vendedores cadastrados, abre modal
-    if (!vendedorAtual && vendedores.length > 0) {
-      setTimeout(() => { abrirModal('vendedor-modal'); renderVendedoresModal(); }, 600);
-    } else if (!vendedorAtual && vendedores.length === 0) {
-      setTimeout(() => { abrirModal('vendedor-modal'); renderVendedoresModal(); }, 600);
+    // Mostra tela de login se não há vendedor ativo
+    if (!vendedorAtual) {
+      mostrarTelaLogin();
     }
   } catch(e) {
     if (statusEl) { statusEl.textContent = '📴 Offline'; statusEl.style.color='#dc2626'; }
+    if (!vendedorAtual) mostrarTelaLogin();
   }
 }
 
@@ -2772,8 +2823,59 @@ function atualizarBadgeVendedor() {
         : '— Nenhum selecionado —');
 }
 
+function mostrarTelaLogin() {
+  const tela = document.getElementById('tela-login');
+  if (!tela) return;
+  tela.classList.remove('oculta');
+  const inp = document.getElementById('login-nome-input');
+  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 200); }
+  const senhaInp = document.getElementById('login-senha-input');
+  if (senhaInp) senhaInp.value = '';
+  const erroEl = document.getElementById('login-erro-msg');
+  if (erroEl) erroEl.textContent = '';
+}
+
+function ocultarTelaLogin() {
+  const tela = document.getElementById('tela-login');
+  if (tela) tela.classList.add('oculta');
+}
+
+function fazerLogin() {
+  const nomeInp = document.getElementById('login-nome-input');
+  const senhaInp = document.getElementById('login-senha-input');
+  const erroEl = document.getElementById('login-erro-msg');
+  const digitado = (nomeInp?.value || '').trim();
+  if (!digitado) { erroEl.textContent = '⚠️ Digite seu nome.'; return; }
+  const v = vendedores.find(x => x.nome.toLowerCase() === digitado.toLowerCase());
+  if (!v) {
+    erroEl.textContent = '⚠️ Nome não encontrado.';
+    nomeInp.select();
+    return;
+  }
+  // Verifica senha se o vendedor tiver
+  if (v.senha) {
+    const senhaDig = senhaInp?.value || '';
+    if (!senhaDig) {
+      erroEl.textContent = '⚠️ Este usuário tem senha. Digite abaixo.';
+      senhaInp?.focus();
+      return;
+    }
+    if (senhaDig !== v.senha) {
+      erroEl.textContent = '⚠️ Senha incorreta.';
+      senhaInp.value = '';
+      senhaInp?.focus();
+      return;
+    }
+  }
+  erroEl.textContent = '';
+  ocultarTelaLogin();
+  // Vai para modal de estabelecimento
+  _selecaoPendente = { id: v.id, nome: v.nome };
+  abrirModalEstabelecimento();
+}
+
 function renderVendedoresModal() {
-  // Limpa o campo de nome e erro ao abrir
+  // Limpa o campo de nome e erro ao abrir (modal antigo — mantido para trocar vendedor)
   const inp = document.getElementById('v-login-nome');
   const erro = document.getElementById('v-login-erro');
   if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 150); }
@@ -2860,10 +2962,9 @@ function confirmarEstabelecimento(estab) {
   save('vendedor_atual', vendedorAtual);
   _selecaoPendente = null;
   fecharModal('modal-estabelecimento');
+  ocultarTelaLogin();
   atualizarBadgeVendedor();
-  renderVendedoresModal();
   renderVendedoresTelaLista();
-  setTimeout(() => fecharModal('vendedor-modal'), 300);
   toast('✅ ' + vendedorAtual.nome + ' · ' + estab);
 }
 
