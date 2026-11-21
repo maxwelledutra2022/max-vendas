@@ -414,6 +414,9 @@
       onkeydown="if(event.key==='Enter')fazerLogin()">
     <div class="login-erro" id="login-erro-msg"></div>
     <button class="login-btn" onclick="fazerLogin()">▶ Entrar</button>
+    <div style="text-align:center;margin-top:16px;">
+      <button onclick="loginAdmin()" style="background:none;border:none;color:#888;font-size:.8rem;cursor:pointer;text-decoration:underline;">🔒 Entrar como Administrador</button>
+    </div>
   </div>
 </div>
 
@@ -2821,6 +2824,21 @@ function atualizarBadgeVendedor() {
     : (vendedorAtual
         ? '👤 ' + vendedorAtual.nome + (vendedorAtual.estabelecimento ? ' — 🏪 ' + vendedorAtual.estabelecimento : '')
         : '— Nenhum selecionado —');
+}
+
+function loginAdmin() {
+  const senha = prompt('🔒 Senha do Administrador:');
+  if (senha === null) return; // cancelou
+  if (senha === 'max2026') {
+    modoAdmin = true;
+    ocultarTelaLogin();
+    // Não precisa selecionar vendedor — entra direto no app
+    atualizarBadgeVendedor();
+    renderDashboard();
+    toast('✅ Modo Admin ativado');
+  } else {
+    alert('❌ Senha incorreta.');
+  }
 }
 
 function mostrarTelaLogin() {
