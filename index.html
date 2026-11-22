@@ -1572,32 +1572,16 @@ async function sincronizarNuvem(silencioso) {
       }
     }
 
-    const cols = sincronizarNuvem._colsVendas;
-    const localVendas = load('vendas_app', []);
-    if (localVendas.length > 0) {
-      const corrigidas = localVendas.map(v => {
-        const obj = {};
-        cols.forEach(c => {
-          if (c === 'created_at') {
-            // Sempre converte para ISO string — nunca envia número em ms
-            const ts = v.created_at || Date.now();
-            obj.created_at = typeof ts === 'number' ? new Date(ts).toISOString() : ts;
-          } else if (v[c] !== undefined) {
-            obj[c] = v[c];
-          }
-        });
-        if (!obj.created_at) obj.created_at = new Date().toISOString();
-        return obj;
-      });
-      for (let i = 0; i < corrigidas.length; i += 50) {
-        const { error: errV } = await sb.from('vendas').upsert(corrigidas.slice(i, i + 50), { onConflict: 'id' });
-        if (errV) {
-          console.error('[Sync] Erro ao subir vendas:', errV.message);
-          mostrarErrSync('ERRO SYNC: ' + errV.message);
-        }
-      }
-    }
-    // Processa tombstones: apaga da nuvem o que foi excluído offline
+    // Helper: converte created_at numérico para ISO string em qualquer array
+    const fixTs = arr => arr.map(o => ({
+      ...o,
+      created_at: o.created_at
+        ? (typeof o.created_at === 'number' ? new Date(o.created_at).toISOString() : o.created_at)
+        : new Date().toISOString()
+    }));
+
+    // Processa tombstones PRIMEIRO: apaga da nuvem o que foi excluído
+    // (deve vir ANTES do pull para não ressuscitar itens deletados)
     const exclVendas = getExcluidos('vendas');
     if (exclVendas.length > 0) {
       for (let i = 0; i < exclVendas.length; i += 50) {
@@ -1614,24 +1598,10 @@ async function sincronizarNuvem(silencioso) {
         if (!erDel) limparExcluidos('produtos', chunk);
       }
     }
-
-    // Helper: converte created_at numérico para ISO string em qualquer array
-    const fixTs = arr => arr.map(o => ({
-      ...o,
-      created_at: o.created_at
-        ? (typeof o.created_at === 'number' ? new Date(o.created_at).toISOString() : o.created_at)
-        : new Date().toISOString()
-    }));
-
-    // Sobe produtos locais (sem foto para evitar limite de tamanho)
-    const localProdutos = load('produtos_app', []);
-    if (localProdutos.length > 0) {
-      const semFoto = fixTs(localProdutos.map(p => { const c = {...p}; delete c.foto; return c; }));
-      for (let i = 0; i < semFoto.length; i += 50) {
-        const { error: errP } = await sb.from('produtos').upsert(semFoto.slice(i, i + 50), { onConflict: 'id' });
-        if (errP) console.error('[Sync] Erro ao subir produtos:', errP.message);
-      }
-    }
+    // NOTA: O upload de vendas e produtos novos é feito no merge inteligente abaixo
+    // (apenasLocal_v / apenasLocal_p), que respeita tombstones e session tracking.
+    // Não fazemos mais upload cego de TODOS os itens locais aqui, pois isso
+    // ressuscitaria itens deletados em outros dispositivos.
     // Sobe movimentos de estoque locais também
     const localEst = fixTs(JSON.parse(localStorage.getItem('est_movimentos') || '[]'));
     if (localEst.length > 0) {
@@ -1674,7 +1644,14 @@ async function sincronizarNuvem(silencioso) {
       vendas = [...cloudVendas, ...apenasLocal_v];
       save('vendas_app', vendas);
       if (apenasLocal_v.length > 0) {
-        const apenasLocal_v_fix = fixTs(apenasLocal_v);
+        const cols = sincronizarNuvem._colsVendas;
+        const apenasLocal_v_fix = fixTs(apenasLocal_v).map(v => {
+          if (!cols) return v;
+          const obj = {};
+          cols.forEach(c => { if (v[c] !== undefined) obj[c] = v[c]; });
+          if (!obj.created_at) obj.created_at = new Date().toISOString();
+          return obj;
+        });
         for (let i = 0; i < apenasLocal_v_fix.length; i += 50) {
           const { error: er } = await sb.from('vendas').upsert(apenasLocal_v_fix.slice(i, i + 50), { onConflict: 'id' });
           if (er) console.error('[Merge] Erro reenvio vendas:', er.message);
