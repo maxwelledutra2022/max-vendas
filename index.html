@@ -1553,10 +1553,17 @@ async function sincronizarNuvem(silencioso) {
     const localVendas = load('vendas_app', []);
     if (localVendas.length > 0) {
       const corrigidas = localVendas.map(v => {
-        // Converte created_at para ISO string (Supabase exige timestamp, não ms)
-        const ts = v.created_at || Date.now();
-        const obj = { created_at: typeof ts === 'number' ? new Date(ts).toISOString() : ts };
-        cols.forEach(c => { if (v[c] !== undefined) obj[c] = v[c]; });
+        const obj = {};
+        cols.forEach(c => {
+          if (c === 'created_at') {
+            // Sempre converte para ISO string — nunca envia número em ms
+            const ts = v.created_at || Date.now();
+            obj.created_at = typeof ts === 'number' ? new Date(ts).toISOString() : ts;
+          } else if (v[c] !== undefined) {
+            obj[c] = v[c];
+          }
+        });
+        if (!obj.created_at) obj.created_at = new Date().toISOString();
         return obj;
       });
       for (let i = 0; i < corrigidas.length; i += 50) {
