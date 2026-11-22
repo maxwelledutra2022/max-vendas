@@ -1654,9 +1654,13 @@ async function sincronizarNuvem(silencioso) {
       const cloudVendas = rv.data.filter(v => !tombV.has(v.id));
       const cloudVIds = new Set(cloudVendas.map(v => v.id));
       // ── FILA DE PENDENTES: só reenvia o que explicitamente ainda não chegou ao Supabase ──
-      // Itens entram na fila em finalizarVenda(). Saem ao ser confirmados ou deletados.
-      // Se um item NÃO está na fila e NÃO está na nuvem → foi deletado por outro dispositivo.
-      const pendenteV = getPendentes('vendas');
+      // CORREÇÃO CRÍTICA: limpar da fila itens já confirmados no Supabase.
+      // Sem isso, se a página recarregar antes do .then() rodar, o item fica na fila
+      // para sempre — e é re-enviado mesmo após outro dispositivo deletá-lo.
+      const pendenteVRaw = getPendentes('vendas');
+      const confirmedV = [...pendenteVRaw].filter(id => cloudVIds.has(id));
+      if (confirmedV.length > 0) removerPendente('vendas', confirmedV);
+      const pendenteV = getPendentes('vendas'); // fila atualizada após limpeza
       const apenasLocal_v = vendas.filter(v => {
         if (cloudVIds.has(v.id)) return false;  // já está na nuvem
         if (tombV.has(v.id)) return false;       // excluído localmente
@@ -1685,6 +1689,10 @@ async function sincronizarNuvem(silencioso) {
     if (!rp.error && rp.data) {
       const cloudProdutos = rp.data.filter(p => !tombP.has(p.id));
       const cloudPIds = new Set(cloudProdutos.map(p => p.id));
+      // CORREÇÃO CRÍTICA (mesma da vendas): limpar da fila itens já confirmados no Supabase.
+      const pendentePRaw = getPendentes('produtos');
+      const confirmedP = [...pendentePRaw].filter(id => cloudPIds.has(id));
+      if (confirmedP.length > 0) removerPendente('produtos', confirmedP);
       const pendenteP = getPendentes('produtos');
       const apenasLocal_p = produtos.filter(p => {
         if (cloudPIds.has(p.id)) return false;
@@ -1738,6 +1746,19 @@ async function sincronizarNuvem(silencioso) {
 }
 
 async function inicializarDados() {
+  // ── MIGRAÇÃO: limpar chaves de versões antigas que causavam ressurreição ──
+  // Versões anteriores usavam __vendas_em_nuvem, __produtos_em_nuvem e
+  // ultimo_sync_ts como controle de merge — lógica que falhava e foi substituída
+  // pela fila __pendentes_*. Se essas chaves existirem no localStorage, removê-las
+  // evita interferência. Executado uma única vez por dispositivo.
+  const APP_VERSION = 'v5-pendentes';
+  if (localStorage.getItem('__app_version') !== APP_VERSION) {
+    ['__vendas_em_nuvem','__produtos_em_nuvem','ultimo_sync_ts',
+     'jaNaNuvemV','jaNaNuvemP','vendasCriadasNestaSessao','produtosCriadosNestaSessao'
+    ].forEach(k => localStorage.removeItem(k));
+    localStorage.setItem('__app_version', APP_VERSION);
+    console.log('[Migração] Chaves legadas removidas. Versão:', APP_VERSION);
+  }
   const ok = await sincronizarNuvem(true);
   if (!vendedorAtual) mostrarTelaLogin();
 }
