@@ -1523,38 +1523,45 @@ async function sincronizarNuvem(silencioso) {
   const statusEl = document.getElementById('sync-status');
   if (statusEl) { statusEl.textContent = '☁️ Sincronizando...'; statusEl.style.color='#bfdbfe'; }
   try {
-    // ── PASSO 1: subir dados locais para a nuvem ──────────────────
-    // Garante que vendas feitas offline ou presas no celular cheguem ao Supabase
+    // ── PASSO 1: descobrir colunas reais da tabela e subir dados ──
+    // Faz um SELECT vazio para ver quais colunas existem no Supabase
+    if (!sincronizarNuvem._colsVendas) {
+      const { data: amostra } = await sb.from('vendas').select('*').limit(1);
+      if (amostra && amostra.length > 0) {
+        sincronizarNuvem._colsVendas = new Set(Object.keys(amostra[0]));
+      } else {
+        // Sem registros: descobre inserindo e apagando um de teste
+        const idTeste = '__col_test__';
+        await sb.from('vendas').delete().eq('id', idTeste);
+        const camposBase = ['id','nome','qtd','preco','total','pgto','data','hora','created_at'];
+        const registroTeste = { id: idTeste, nome:'T', qtd:1, preco:1, total:1, pgto:'D', data:'2000-01-01', hora:'00:00', created_at: Date.now() };
+        // Testa com campos extras um a um para descobrir quais existem
+        const extras = ['vendedor','estabelecimento','pedido_id'];
+        const colsOk = [...camposBase];
+        for (const extra of extras) {
+          const teste = { ...registroTeste, [extra]: 'teste' };
+          const { error: te } = await sb.from('vendas').upsert(teste, { onConflict: 'id' });
+          if (!te) colsOk.push(extra);
+        }
+        await sb.from('vendas').delete().eq('id', idTeste);
+        sincronizarNuvem._colsVendas = new Set(colsOk);
+        console.log('[Sync] Colunas detectadas:', [...colsOk]);
+      }
+    }
+
+    const cols = sincronizarNuvem._colsVendas;
     const localVendas = load('vendas_app', []);
     if (localVendas.length > 0) {
-      // Apenas colunas que existem na tabela do Supabase
-      const camposValidos = ['id','nome','qtd','preco','total','pgto','data','hora','pedido_id','vendedor','estabelecimento','created_at'];
       const corrigidas = localVendas.map(v => {
         const obj = { created_at: v.created_at || Date.now() };
-        camposValidos.forEach(c => { if (v[c] !== undefined) obj[c] = v[c]; });
+        cols.forEach(c => { if (v[c] !== undefined) obj[c] = v[c]; });
         return obj;
       });
-      // Tenta com todos os campos primeiro
-      let errV;
       for (let i = 0; i < corrigidas.length; i += 50) {
-        const r = await sb.from('vendas').upsert(corrigidas.slice(i, i + 50), { onConflict: 'id' });
-        errV = r.error;
-        if (errV) break;
-      }
-      // Se falhou por coluna ausente, tenta só com campos mínimos
-      if (errV && errV.message && errV.message.includes('column')) {
-        console.warn('[Sync] Tentando com campos mínimos:', errV.message);
-        const minimos = corrigidas.map(v => ({
-          id: v.id, nome: v.nome, qtd: v.qtd, preco: v.preco,
-          total: v.total, pgto: v.pgto, data: v.data, hora: v.hora,
-          created_at: v.created_at
-        }));
-        for (let i = 0; i < minimos.length; i += 50) {
-          const r2 = await sb.from('vendas').upsert(minimos.slice(i, i + 50), { onConflict: 'id' });
-          if (r2.error) {
-            const msg = `ERRO SYNC: ${r2.error.message}`;
-            mostrarErrSync(msg);
-          }
+        const { error: errV } = await sb.from('vendas').upsert(corrigidas.slice(i, i + 50), { onConflict: 'id' });
+        if (errV) {
+          console.error('[Sync] Erro ao subir vendas:', errV.message);
+          mostrarErrSync('ERRO SYNC: ' + errV.message);
         }
       }
     }
@@ -2117,16 +2124,12 @@ function finalizarVenda() {
       created_at: Date.now()
     };
     vendas.push(venda);
-    // Tenta upsert completo; se falhar por coluna ausente, envia campos mínimos
-    sb.from('vendas').upsert(venda, { onConflict: 'id' }).then(r => {
-      if (r.error && r.error.message && r.error.message.includes('column')) {
-        sb.from('vendas').upsert({
-          id: venda.id, nome: venda.nome, qtd: venda.qtd, preco: venda.preco,
-          total: venda.total, pgto: venda.pgto, data: venda.data, hora: venda.hora,
-          created_at: venda.created_at
-        }, { onConflict: 'id' });
-      }
-    });
+    // Usa as colunas detectadas para evitar erro de schema
+    const _cols = sincronizarNuvem._colsVendas;
+    const vendaParaEnviar = _cols
+      ? Object.fromEntries(Object.entries(venda).filter(([k]) => _cols.has(k)))
+      : { id: venda.id, nome: venda.nome, qtd: venda.qtd, preco: venda.preco, total: venda.total, pgto: venda.pgto, data: venda.data, hora: venda.hora, created_at: venda.created_at };
+    sb.from('vendas').upsert(vendaParaEnviar, { onConflict: 'id' });
 
     // Desconta estoque produto cadastrado
     if (item.prodId) {
