@@ -3887,28 +3887,53 @@ function cfRenderEstamparia() {
 
   const el = document.getElementById('cf-lista-estamparia');
   if (!lista.length) { el.innerHTML = '<p style="text-align:center;color:var(--muted);padding:20px;">Nenhum registro.</p>'; return; }
-  el.innerHTML = lista.map(e => {
-    const stCls = e.status === 'ok' ? 'cf-badge-ok' : 'cf-badge-warn';
-    const pgCls = e.pago ? 'cf-badge-ok' : 'cf-badge-red';
-    return `<div class="cf-card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
-        <div><span style="font-weight:900;">Corte #${e.numero_corte}</span> <span style="font-size:.78rem;color:var(--muted);">· ${e.descricao||''}</span></div>
-        <span class="cf-badge ${stCls}">${e.status==='ok'?'✅ Devolvido':'⏳ Pendente'}</span>
-      </div>
-      <div style="font-weight:700;margin-bottom:4px;">🎨 ${e.estamparia_nome}</div>
-      <div style="font-size:.8rem;color:var(--muted);">Enviadas: ${e.entrega_total||0} · Devolvidas: ${e.devolucao_total||0} · ${e.data_envio||''}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-        <span style="font-weight:800;font-size:.95rem;">${cfFmt(e.valor_total)}</span>
-        <span class="cf-badge ${pgCls}">${e.pago?'💰 Pago':'⚠️ A Pagar'}</span>
-      </div>
-      ${e.obs?`<div style="font-size:.78rem;color:var(--muted);margin-top:4px;">${e.obs}</div>`:''}
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <button onclick="cfEditarEst('${e.id}')" style="flex:1;padding:7px;border:1.5px solid var(--border);border-radius:8px;background:transparent;font-size:.8rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
-        <button onclick="cfTogglePagoEst('${e.id}')" style="flex:1;padding:7px;border:1.5px solid ${e.pago?'#d1fae5':'#fee2e2'};border-radius:8px;background:transparent;font-size:.8rem;font-weight:700;cursor:pointer;color:${e.pago?'#065f46':'#991b1b'}">${e.pago?'↩ Desfazer Pago':'✅ Marcar Pago'}</button>
-        <button onclick="cfExcluirEst('${e.id}')" style="padding:7px 12px;border:1.5px solid #fee2e2;border-radius:8px;background:transparent;font-size:.8rem;color:var(--danger);cursor:pointer;">🗑️</button>
-      </div>
-    </div>`;
-  }).join('');
+
+  // ── TABELA ESTILO EXCEL ──
+  el.innerHTML = `
+  <div style="overflow-x:auto;border-radius:10px;border:1.5px solid var(--border);background:#fff;margin-bottom:4px;">
+    <table style="width:100%;border-collapse:collapse;font-size:.78rem;">
+      <thead>
+        <tr style="background:#f1f5f9;border-bottom:2px solid var(--border);">
+          <th style="padding:8px 10px;text-align:left;font-weight:800;white-space:nowrap;">Corte</th>
+          <th style="padding:8px 6px;text-align:left;font-weight:800;white-space:nowrap;">Estamparia</th>
+          <th style="padding:8px 6px;text-align:center;font-weight:800;white-space:nowrap;">Env.</th>
+          <th style="padding:8px 6px;text-align:center;font-weight:800;white-space:nowrap;">Dev.</th>
+          <th style="padding:8px 6px;text-align:right;font-weight:800;white-space:nowrap;">Valor</th>
+          <th style="padding:8px 6px;text-align:center;font-weight:800;white-space:nowrap;">Pgto</th>
+          <th style="padding:8px 6px;text-align:center;font-weight:800;white-space:nowrap;">Status</th>
+          <th style="padding:8px 6px;text-align:center;font-weight:800;white-space:nowrap;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${lista.map((e, i) => {
+          const bg = i % 2 === 0 ? '#fff' : '#f8fafc';
+          const stColor = e.status === 'ok' ? '#065f46' : '#92400e';
+          const stBg    = e.status === 'ok' ? '#d1fae5' : '#fef3c7';
+          const pgColor = e.pago ? '#065f46' : '#991b1b';
+          const pgBg    = e.pago ? '#d1fae5' : '#fee2e2';
+          return `<tr style="background:${bg};border-bottom:1px solid #e5e7eb;">
+            <td style="padding:8px 10px;font-weight:900;white-space:nowrap;">#${e.numero_corte}<br><span style="font-weight:400;font-size:.72rem;color:var(--muted);">${e.data_envio||''}</span></td>
+            <td style="padding:8px 6px;font-weight:700;">🎨 ${e.estamparia_nome}<br><span style="font-weight:400;font-size:.72rem;color:var(--muted);">${e.descricao||''}</span></td>
+            <td style="padding:8px 6px;text-align:center;">${e.entrega_total||0}</td>
+            <td style="padding:8px 6px;text-align:center;">${e.devolucao_total||0}</td>
+            <td style="padding:8px 6px;text-align:right;font-weight:800;">${cfFmt(e.valor_total)}</td>
+            <td style="padding:8px 6px;text-align:center;">
+              <span style="display:inline-block;padding:3px 8px;border-radius:20px;font-weight:700;font-size:.72rem;background:${pgBg};color:${pgColor};">${e.pago?'💰 Pago':'⚠️ A Pagar'}</span>
+            </td>
+            <td style="padding:8px 6px;text-align:center;">
+              <span style="display:inline-block;padding:3px 8px;border-radius:20px;font-weight:700;font-size:.72rem;background:${stBg};color:${stColor};">${e.status==='ok'?'✅ Dev.':'⏳ Pend.'}</span>
+            </td>
+            <td style="padding:8px 6px;text-align:center;white-space:nowrap;">
+              <button onclick="cfEditarEst('${e.id}')" title="Editar" style="border:none;background:#e0e7ff;color:#3730a3;border-radius:6px;padding:5px 8px;font-size:.8rem;cursor:pointer;margin-right:4px;">✏️</button>
+              <button onclick="cfTogglePagoEst('${e.id}')" title="${e.pago?'Desfazer pagamento':'Marcar como pago'}" style="border:none;background:${pgBg};color:${pgColor};border-radius:6px;padding:5px 8px;font-size:.8rem;cursor:pointer;margin-right:4px;">${e.pago?'↩':'✅'}</button>
+              <button onclick="cfExcluirEst('${e.id}')" title="Excluir" style="border:none;background:#fee2e2;color:#dc2626;border-radius:6px;padding:5px 10px;font-size:.85rem;font-weight:900;cursor:pointer;">🗑️</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+  <div style="font-size:.75rem;color:var(--muted);text-align:right;padding:2px 4px;">${lista.length} registro${lista.length>1?'s':''}</div>`;
 }
 function cfEditarEst(id) {
   const e = cf_estamparia.find(x => x.id === id); if (!e) return;
