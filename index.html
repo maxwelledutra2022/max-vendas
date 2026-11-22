@@ -1535,6 +1535,15 @@ async function sincronizarNuvem(silencioso) {
         if (errV) console.error('[Sync] Erro ao subir vendas:', errV.message, errV.details, errV.hint);
       }
     }
+    // Sobe produtos locais (sem foto para evitar limite de tamanho)
+    const localProdutos = load('produtos_app', []);
+    if (localProdutos.length > 0) {
+      const semFoto = localProdutos.map(p => { const c = {...p}; delete c.foto; return c; });
+      for (let i = 0; i < semFoto.length; i += 50) {
+        const { error: errP } = await sb.from('produtos').upsert(semFoto.slice(i, i + 50), { onConflict: 'id' });
+        if (errP) console.error('[Sync] Erro ao subir produtos:', errP.message);
+      }
+    }
     // Sobe movimentos de estoque locais também
     const localEst = JSON.parse(localStorage.getItem('est_movimentos') || '[]');
     if (localEst.length > 0) {
@@ -1551,9 +1560,41 @@ async function sincronizarNuvem(silencioso) {
       sb.from('base_nomes').select('*').order('nome', { ascending: true }),
       sb.from('est_movimentos').select('*').order('created_at', { ascending: false })
     ]);
-    if (!rv.error && rv.data) { vendas = rv.data; save('vendas_app', vendas); }
-    if (!rp.error && rp.data) { produtos = rp.data; save('produtos_app', produtos); }
-    if (!rvd.error && rvd.data) { vendedores = rvd.data; save('vendedores_app', vendedores); }
+    // Merge inteligente: nunca apaga dados locais que ainda não subiram para a nuvem
+    if (!rv.error && rv.data) {
+      const cloudVIds = new Set(rv.data.map(v => v.id));
+      const apenasLocal_v = vendas.filter(v => !cloudVIds.has(v.id));
+      vendas = [...rv.data, ...apenasLocal_v];
+      save('vendas_app', vendas);
+      // Reenvia os que ficaram só local
+      if (apenasLocal_v.length > 0) {
+        for (let i = 0; i < apenasLocal_v.length; i += 50) {
+          const { error: er } = await sb.from('vendas').upsert(apenasLocal_v.slice(i, i + 50), { onConflict: 'id' });
+          if (er) console.error('[Merge] Erro reenvio vendas:', er.message);
+        }
+      }
+    }
+    if (!rp.error && rp.data) {
+      const cloudPIds = new Set(rp.data.map(p => p.id));
+      const apenasLocal_p = produtos.filter(p => !cloudPIds.has(p.id));
+      produtos = [...rp.data, ...apenasLocal_p];
+      save('produtos_app', produtos);
+      // Reenvia produtos que ficaram só local (sem foto pois pode ser muito grande)
+      if (apenasLocal_p.length > 0) {
+        const semFoto = apenasLocal_p.map(p => { const c = {...p}; delete c.foto; return c; });
+        for (let i = 0; i < semFoto.length; i += 50) {
+          const { error: er } = await sb.from('produtos').upsert(semFoto.slice(i, i + 50), { onConflict: 'id' });
+          if (er) console.error('[Merge] Erro reenvio produtos:', er.message);
+        }
+      }
+    }
+    if (!rvd.error && rvd.data) {
+      const cloudVdIds = new Set(rvd.data.map(v => v.id));
+      const apenasLocal_vd = vendedores.filter(v => !cloudVdIds.has(v.id));
+      vendedores = [...rvd.data, ...apenasLocal_vd];
+      save('vendedores_app', vendedores);
+      if (apenasLocal_vd.length > 0) sb.from('vendedores').upsert(apenasLocal_vd, { onConflict: 'id' });
+    }
     if (!rbn.error && rbn.data) { baseNomes = rbn.data; save('base_nomes_app', baseNomes); }
     if (!rem.error && rem.data) { est_movimentos = rem.data; estSalvarLocal(); }
 
