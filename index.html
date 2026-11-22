@@ -927,6 +927,22 @@
   <!-- SUB-TELA: COSTUREIRO -->
   <div class="corte-panel" id="ct-costureiro">
     <div id="ct-cos-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;"></div>
+
+    <!-- Gerenciar costureiros -->
+    <details id="cos-gerenciar-bloco" style="margin-bottom:12px;">
+      <summary style="cursor:pointer;font-weight:800;font-size:.88rem;padding:10px 14px;background:#f1f5f9;border-radius:10px;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+        <span>✂️ Gerenciar Costureiros</span><span style="font-size:.75rem;color:var(--muted);">▼</span>
+      </summary>
+      <div style="border:1.5px solid var(--border);border-top:none;border-radius:0 0 10px 10px;padding:12px;">
+        <div id="cos-lista-gerenciar" style="margin-bottom:10px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="cos-novo-nome" placeholder="Nome do costureiro" style="flex:1;margin-bottom:0;"
+            onkeydown="if(event.key==='Enter')cfAddCostureiroRapido()">
+          <button class="btn btn-primary" onclick="cfAddCostureiroRapido()" style="white-space:nowrap;">➕ Adicionar</button>
+        </div>
+      </div>
+    </details>
+
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
       <input style="flex:1;min-width:130px;padding:8px 12px;border:1.5px solid var(--border);border-radius:20px;font-size:.82rem;" type="text" placeholder="🔍 Buscar..." oninput="cfRenderCostureiro()" id="cf-busca-cos">
       <select style="padding:7px 10px;border:1.5px solid var(--border);border-radius:20px;font-size:.78rem;font-weight:600;" onchange="cfFiltroCos=this.value;cfRenderCostureiro()">
@@ -4060,6 +4076,7 @@ function cfSalvarCos() {
   cfEditandoCosId = null;
 }
 function cfRenderCostureiro() {
+  cfRenderGerenciarCostureiros();
   const busca = (document.getElementById('cf-busca-cos')?.value||'').toLowerCase();
   let lista = cf_costureiro.filter(c => {
     if (cfFiltroCos === 'pendente' && c.status !== 'pendente') return false;
@@ -4410,6 +4427,37 @@ function cfAddCostureiro() {
 }
 function cfRemoverCos(i) {
   cf_config.costureiros.splice(i,1); cfSalvar('cf_config', cf_config); cfRenderConfig();
+}
+// ── Gerenciar costureiros direto na aba Costureiro ──
+function cfRenderGerenciarCostureiros() {
+  const el = document.getElementById('cos-lista-gerenciar'); if (!el) return;
+  if (!cf_config.costureiros.length) { el.innerHTML = '<p style="font-size:.8rem;color:var(--muted);margin:0;">Nenhum costureiro cadastrado.</p>'; return; }
+  el.innerHTML = cf_config.costureiros.map((c, i) => {
+    const nome = c.nome||c;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #e5e7eb;">
+      <span style="font-size:.88rem;font-weight:700;">✂️ ${nome}</span>
+      <button onclick="cfRemoverCosRapido(${i})" style="border:none;background:#fee2e2;color:#dc2626;border-radius:7px;padding:5px 11px;font-size:.82rem;font-weight:800;cursor:pointer;">🗑️ Excluir</button>
+    </div>`;
+  }).join('');
+}
+function cfAddCostureiroRapido() {
+  const inp = document.getElementById('cos-novo-nome');
+  const v = inp.value.trim().toUpperCase(); if (!v) return;
+  if (!cf_config.costureiros.find(c => (c.nome||c) === v)) {
+    cf_config.costureiros.push({nome: v, tel: ''}); cfSalvar('cf_config', cf_config);
+    toast('✅ Costureiro "' + v + '" adicionado!');
+  } else { toast('⚠️ Já existe um costureiro com esse nome.'); }
+  inp.value = '';
+  cfRenderGerenciarCostureiros();
+  cfPopulateCorteSelects();
+}
+function cfRemoverCosRapido(i) {
+  const nome = cf_config.costureiros[i]?.nome || cf_config.costureiros[i];
+  if (!confirm('Excluir o costureiro "' + nome + '"?')) return;
+  cf_config.costureiros.splice(i, 1); cfSalvar('cf_config', cf_config);
+  cfRenderGerenciarCostureiros();
+  cfPopulateCorteSelects();
+  toast('🗑️ Costureiro removido.');
 }
 function cfSalvarConfig() {
   cf_config.val_estamparia = parseFloat(document.getElementById('ct-val-estamparia').value)||1.50;
