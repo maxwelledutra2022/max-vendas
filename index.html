@@ -1512,13 +1512,20 @@ function limparExcluidos(tabela, ids) {
   localStorage.setItem(key, JSON.stringify(lista.filter(id => !ids.includes(id))));
 }
 
+function removerDeNuvemConfirmada(tabela, ids) {
+  const key = '__' + tabela + '_em_nuvem';
+  const lista = JSON.parse(localStorage.getItem(key) || '[]');
+  localStorage.setItem(key, JSON.stringify(lista.filter(id => !ids.includes(id))));
+}
 async function sbDelete(tabela, id) {
   registrarExclusao(tabela, [id]);
+  removerDeNuvemConfirmada(tabela, [id]);
   try { await sb.from(tabela).delete().eq('id', id); limparExcluidos(tabela, [id]); }
   catch(e) { console.warn('Offline:', e.message); }
 }
 async function sbDeleteMany(tabela, ids) {
   registrarExclusao(tabela, ids);
+  removerDeNuvemConfirmada(tabela, ids);
   try { await sb.from(tabela).delete().in('id', ids); limparExcluidos(tabela, ids); }
   catch(e) { console.warn('Offline:', e.message); }
 }
@@ -1633,16 +1640,21 @@ async function sincronizarNuvem(silencioso) {
     if (!rv.error && rv.data) {
       const cloudVendas = rv.data.filter(v => !tombV.has(v.id));
       const cloudVIds = new Set(cloudVendas.map(v => v.id));
-      // Só reenviar se criado depois do último sync (novo neste dispositivo, ainda não na nuvem)
+      // IDs que já foram confirmados na nuvem em algum sync anterior
+      // Se um item estava na nuvem antes e agora não está → foi deletado por outro dispositivo
+      const jaNaNuvemV = new Set(load('__vendas_em_nuvem', []));
       const apenasLocal_v = vendas.filter(v => {
-        if (cloudVIds.has(v.id)) return false;
-        if (tombV.has(v.id)) return false;
-        if (vendasCriadasNestaSessao.has(v.id)) return true;
-        if (ultimoSync > 0 && tsItem(v) > ultimoSync) return true;
+        if (cloudVIds.has(v.id)) return false;      // já está na nuvem agora
+        if (tombV.has(v.id)) return false;           // excluído localmente
+        if (jaNaNuvemV.has(v.id)) return false;      // estava na nuvem antes → foi deletado externamente, não reenviar
+        if (vendasCriadasNestaSessao.has(v.id)) return true;  // criado offline nesta sessão
+        if (ultimoSync > 0 && tsItem(v) > ultimoSync) return true;  // criado após último sync
         return false;
       });
       vendas = [...cloudVendas, ...apenasLocal_v];
       save('vendas_app', vendas);
+      // Atualiza lista de IDs confirmados na nuvem
+      save('__vendas_em_nuvem', [...cloudVIds, ...apenasLocal_v.map(v => v.id)]);
       if (apenasLocal_v.length > 0) {
         const cols = sincronizarNuvem._colsVendas;
         const apenasLocal_v_fix = fixTs(apenasLocal_v).map(v => {
@@ -1661,15 +1673,18 @@ async function sincronizarNuvem(silencioso) {
     if (!rp.error && rp.data) {
       const cloudProdutos = rp.data.filter(p => !tombP.has(p.id));
       const cloudPIds = new Set(cloudProdutos.map(p => p.id));
+      const jaNaNuvemP = new Set(load('__produtos_em_nuvem', []));
       const apenasLocal_p = produtos.filter(p => {
         if (cloudPIds.has(p.id)) return false;
         if (tombP.has(p.id)) return false;
+        if (jaNaNuvemP.has(p.id)) return false;      // estava na nuvem antes → deletado externamente
         if (produtosCriadosNestaSessao.has(p.id)) return true;
         if (ultimoSync > 0 && tsItem(p) > ultimoSync) return true;
         return false;
       });
       produtos = [...cloudProdutos, ...apenasLocal_p];
       save('produtos_app', produtos);
+      save('__produtos_em_nuvem', [...cloudPIds, ...apenasLocal_p.map(p => p.id)]);
       if (apenasLocal_p.length > 0) {
         const semFoto = fixTs(apenasLocal_p.map(p => { const c = {...p}; delete c.foto; return c; }));
         for (let i = 0; i < semFoto.length; i += 50) {
