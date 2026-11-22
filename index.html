@@ -1493,12 +1493,30 @@ async function sbUpsert(tabela, dados) {
     return !error;
   } catch(e) { console.error('[Supabase] Offline:', e.message); return false; }
 }
+// Tombstone: registra IDs excluídos localmente para garantir deleção na nuvem
+function registrarExclusao(tabela, ids) {
+  const key = '__excluidos_' + tabela;
+  const lista = JSON.parse(localStorage.getItem(key) || '[]');
+  const nova = [...new Set([...lista, ...(Array.isArray(ids) ? ids : [ids])])];
+  localStorage.setItem(key, JSON.stringify(nova));
+}
+function getExcluidos(tabela) {
+  return JSON.parse(localStorage.getItem('__excluidos_' + tabela) || '[]');
+}
+function limparExcluidos(tabela, ids) {
+  const key = '__excluidos_' + tabela;
+  const lista = JSON.parse(localStorage.getItem(key) || '[]');
+  localStorage.setItem(key, JSON.stringify(lista.filter(id => !ids.includes(id))));
+}
+
 async function sbDelete(tabela, id) {
-  try { await sb.from(tabela).delete().eq('id', id); }
+  registrarExclusao(tabela, [id]);
+  try { await sb.from(tabela).delete().eq('id', id); limparExcluidos(tabela, [id]); }
   catch(e) { console.warn('Offline:', e.message); }
 }
 async function sbDeleteMany(tabela, ids) {
-  try { await sb.from(tabela).delete().in('id', ids); }
+  registrarExclusao(tabela, ids);
+  try { await sb.from(tabela).delete().in('id', ids); limparExcluidos(tabela, ids); }
   catch(e) { console.warn('Offline:', e.message); }
 }
 
@@ -1574,6 +1592,24 @@ async function sincronizarNuvem(silencioso) {
         }
       }
     }
+    // Processa tombstones: apaga da nuvem o que foi excluído offline
+    const exclVendas = getExcluidos('vendas');
+    if (exclVendas.length > 0) {
+      for (let i = 0; i < exclVendas.length; i += 50) {
+        const chunk = exclVendas.slice(i, i + 50);
+        const { error: erDel } = await sb.from('vendas').delete().in('id', chunk);
+        if (!erDel) limparExcluidos('vendas', chunk);
+      }
+    }
+    const exclProdutos = getExcluidos('produtos');
+    if (exclProdutos.length > 0) {
+      for (let i = 0; i < exclProdutos.length; i += 50) {
+        const chunk = exclProdutos.slice(i, i + 50);
+        const { error: erDel } = await sb.from('produtos').delete().in('id', chunk);
+        if (!erDel) limparExcluidos('produtos', chunk);
+      }
+    }
+
     // Helper: converte created_at numérico para ISO string em qualquer array
     const fixTs = arr => arr.map(o => ({
       ...o,
@@ -1608,10 +1644,14 @@ async function sincronizarNuvem(silencioso) {
       sb.from('est_movimentos').select('*').order('created_at', { ascending: false })
     ]);
     // Merge inteligente: nunca apaga dados locais que ainda não subiram para a nuvem
+    const tombV = new Set(getExcluidos('vendas'));
+    const tombP = new Set(getExcluidos('produtos'));
     if (!rv.error && rv.data) {
-      const cloudVIds = new Set(rv.data.map(v => v.id));
-      const apenasLocal_v = vendas.filter(v => !cloudVIds.has(v.id));
-      vendas = [...rv.data, ...apenasLocal_v];
+      // Filtra da nuvem os IDs que foram excluídos localmente
+      const cloudVendas = rv.data.filter(v => !tombV.has(v.id));
+      const cloudVIds = new Set(cloudVendas.map(v => v.id));
+      const apenasLocal_v = vendas.filter(v => !cloudVIds.has(v.id) && !tombV.has(v.id));
+      vendas = [...cloudVendas, ...apenasLocal_v];
       save('vendas_app', vendas);
       // Reenvia os que ficaram só local
       if (apenasLocal_v.length > 0) {
@@ -1623,9 +1663,10 @@ async function sincronizarNuvem(silencioso) {
       }
     }
     if (!rp.error && rp.data) {
-      const cloudPIds = new Set(rp.data.map(p => p.id));
-      const apenasLocal_p = produtos.filter(p => !cloudPIds.has(p.id));
-      produtos = [...rp.data, ...apenasLocal_p];
+      const cloudProdutos = rp.data.filter(p => !tombP.has(p.id));
+      const cloudPIds = new Set(cloudProdutos.map(p => p.id));
+      const apenasLocal_p = produtos.filter(p => !cloudPIds.has(p.id) && !tombP.has(p.id));
+      produtos = [...cloudProdutos, ...apenasLocal_p];
       save('produtos_app', produtos);
       // Reenvia produtos que ficaram só local (sem foto pois pode ser muito grande)
       if (apenasLocal_p.length > 0) {
