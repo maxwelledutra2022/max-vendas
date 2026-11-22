@@ -605,6 +605,21 @@
   </div>
 </div>
 
+<!-- Modal Cupom Pós-Venda -->
+<div id="modal-cupom" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:18px;padding:28px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.18);">
+    <div style="font-size:2.5rem;margin-bottom:8px;">✅</div>
+    <div style="font-size:1.15rem;font-weight:900;margin-bottom:4px;">Venda Finalizada!</div>
+    <div id="modal-cupom-resumo" style="font-size:.88rem;color:#555;margin-bottom:20px;"></div>
+    <button onclick="imprimirCupomAtual()" style="width:100%;padding:14px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:1rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;">
+      🖨️ Imprimir Cupom
+    </button>
+    <button onclick="document.getElementById('modal-cupom').style.display='none'" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:12px;background:transparent;color:#555;font-size:.92rem;font-weight:700;cursor:pointer;">
+      Fechar sem imprimir
+    </button>
+  </div>
+</div>
+
 <!-- ===== HISTÓRICO ===== -->
 <div class="screen" id="screen-historico">
   <div class="filter-row">
@@ -2289,15 +2304,47 @@ function finalizarVenda() {
 
   const totalGeral = carrinho.reduce((s, it) => s + it.qtd * it.preco, 0);
   const nItens = carrinho.length;
+
+  // Guarda dados do pedido para impressão do cupom
+  window._ultimoPedidoImpressao = {
+    pedido_id: pedidoId,
+    itens: carrinho.map(it => ({...it, total: it.qtd * it.preco})),
+    total: totalGeral,
+    pgto,
+    data,
+    hora,
+    vendedor: vendedorAtual ? vendedorAtual.nome : '',
+    estabelecimento: vendedorAtual ? (vendedorAtual.estabelecimento || '') : ''
+  };
+
   carrinho = [];
   renderCarrinho();
   updateTop();
-  toast(`✅ Venda de ${fmt(totalGeral)} finalizada! (${nItens} item${nItens>1?'ns':''})`);
+
+  // Abre modal de impressão
+  const resumo = document.getElementById('modal-cupom-resumo');
+  if (resumo) {
+    resumo.textContent = `${nItens} item${nItens>1?'ns':''} · ${fmt(totalGeral)} · ${pgto}`;
+  }
+  document.getElementById('modal-cupom').style.display = 'flex';
 
   // Força sincronização imediata após cada venda para garantir que outros dispositivos vejam
   sincronizarNuvem(true).then(ok => {
     if (!ok) toast('⚠️ Venda salva localmente (sem internet). Sincronize quando conectar.');
   });
+}
+
+function imprimirCupomAtual() {
+  document.getElementById('modal-cupom').style.display = 'none';
+  const p = window._ultimoPedidoImpressao;
+  if (!p) return;
+  if (p.itens.length === 1) {
+    // Recibo individual (já existente)
+    imprimirRecibo({ ...p.itens[0], pgto: p.pgto, data: p.data, hora: p.hora, vendedor: p.vendedor, estabelecimento: p.estabelecimento });
+  } else {
+    // Pedido com vários itens
+    imprimirReciboPedido(p);
+  }
 }
 
 // alias para compatibilidade (caso chamado em outro lugar)
