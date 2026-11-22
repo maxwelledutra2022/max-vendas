@@ -1574,17 +1574,25 @@ async function sincronizarNuvem(silencioso) {
         }
       }
     }
+    // Helper: converte created_at numérico para ISO string em qualquer array
+    const fixTs = arr => arr.map(o => ({
+      ...o,
+      created_at: o.created_at
+        ? (typeof o.created_at === 'number' ? new Date(o.created_at).toISOString() : o.created_at)
+        : new Date().toISOString()
+    }));
+
     // Sobe produtos locais (sem foto para evitar limite de tamanho)
     const localProdutos = load('produtos_app', []);
     if (localProdutos.length > 0) {
-      const semFoto = localProdutos.map(p => { const c = {...p}; delete c.foto; return c; });
+      const semFoto = fixTs(localProdutos.map(p => { const c = {...p}; delete c.foto; return c; }));
       for (let i = 0; i < semFoto.length; i += 50) {
         const { error: errP } = await sb.from('produtos').upsert(semFoto.slice(i, i + 50), { onConflict: 'id' });
         if (errP) console.error('[Sync] Erro ao subir produtos:', errP.message);
       }
     }
     // Sobe movimentos de estoque locais também
-    const localEst = JSON.parse(localStorage.getItem('est_movimentos') || '[]');
+    const localEst = fixTs(JSON.parse(localStorage.getItem('est_movimentos') || '[]'));
     if (localEst.length > 0) {
       for (let i = 0; i < localEst.length; i += 50) {
         await sb.from('est_movimentos').upsert(localEst.slice(i, i + 50), { onConflict: 'id' });
@@ -1607,8 +1615,9 @@ async function sincronizarNuvem(silencioso) {
       save('vendas_app', vendas);
       // Reenvia os que ficaram só local
       if (apenasLocal_v.length > 0) {
-        for (let i = 0; i < apenasLocal_v.length; i += 50) {
-          const { error: er } = await sb.from('vendas').upsert(apenasLocal_v.slice(i, i + 50), { onConflict: 'id' });
+        const apenasLocal_v_fix = fixTs(apenasLocal_v);
+        for (let i = 0; i < apenasLocal_v_fix.length; i += 50) {
+          const { error: er } = await sb.from('vendas').upsert(apenasLocal_v_fix.slice(i, i + 50), { onConflict: 'id' });
           if (er) console.error('[Merge] Erro reenvio vendas:', er.message);
         }
       }
@@ -1620,7 +1629,7 @@ async function sincronizarNuvem(silencioso) {
       save('produtos_app', produtos);
       // Reenvia produtos que ficaram só local (sem foto pois pode ser muito grande)
       if (apenasLocal_p.length > 0) {
-        const semFoto = apenasLocal_p.map(p => { const c = {...p}; delete c.foto; return c; });
+        const semFoto = fixTs(apenasLocal_p.map(p => { const c = {...p}; delete c.foto; return c; }));
         for (let i = 0; i < semFoto.length; i += 50) {
           const { error: er } = await sb.from('produtos').upsert(semFoto.slice(i, i + 50), { onConflict: 'id' });
           if (er) console.error('[Merge] Erro reenvio produtos:', er.message);
@@ -1632,7 +1641,7 @@ async function sincronizarNuvem(silencioso) {
       const apenasLocal_vd = vendedores.filter(v => !cloudVdIds.has(v.id));
       vendedores = [...rvd.data, ...apenasLocal_vd];
       save('vendedores_app', vendedores);
-      if (apenasLocal_vd.length > 0) sb.from('vendedores').upsert(apenasLocal_vd, { onConflict: 'id' });
+      if (apenasLocal_vd.length > 0) sb.from('vendedores').upsert(fixTs(apenasLocal_vd), { onConflict: 'id' });
     }
     if (!rbn.error && rbn.data) { baseNomes = rbn.data; save('base_nomes_app', baseNomes); }
     if (!rem.error && rem.data) { est_movimentos = rem.data; estSalvarLocal(); }
