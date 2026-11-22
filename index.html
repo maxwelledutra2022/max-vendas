@@ -604,10 +604,13 @@
 
 <!-- ===== HISTÓRICO ===== -->
 <div class="screen" id="screen-historico">
-  <div class="filter-row">
-    <span class="filter-chip active" onclick="filtrarHist('hoje',this)">Hoje</span>
-    <span class="filter-chip" onclick="filtrarHist('semana',this)">Semana</span>
-    <span class="filter-chip" onclick="filtrarHist('tudo',this)">Tudo</span>
+  <div class="filter-row" style="justify-content:space-between;align-items:center;">
+    <div style="display:flex;gap:6px;">
+      <span class="filter-chip active" onclick="filtrarHist('hoje',this)">Hoje</span>
+      <span class="filter-chip" onclick="filtrarHist('semana',this)">Semana</span>
+      <span class="filter-chip" onclick="filtrarHist('tudo',this)">Tudo</span>
+    </div>
+    <button onclick="sincronizarNuvem(false).then(()=>renderHistorico(histFiltro||'hoje'))" style="background:#1d4ed8;color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:.78rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;" id="btn-sincronizar">🔄 Sincronizar</button>
   </div>
 
   <div class="card" style="margin-bottom:8px;" id="hist-resumo">
@@ -1518,9 +1521,9 @@ let modoAdmin = false; // session-only, não persiste
 const CF_ESTABELECIMENTOS = ['LOJA', 'BOX A', 'BOX V', 'BOX O'];
 
 // Carrega dados da nuvem ao iniciar
-async function inicializarDados() {
+async function sincronizarNuvem(silencioso) {
   const statusEl = document.getElementById('sync-status');
-  if (statusEl) statusEl.textContent = '☁️ Sincronizando...';
+  if (statusEl) { statusEl.textContent = '☁️ Sincronizando...'; statusEl.style.color='#bfdbfe'; }
   try {
     const [rv, rp, rvd, rbn, rem] = await Promise.all([
       sb.from('vendas').select('*').order('created_at', { ascending: true }),
@@ -1529,38 +1532,29 @@ async function inicializarDados() {
       sb.from('base_nomes').select('*').order('nome', { ascending: true }),
       sb.from('est_movimentos').select('*').order('created_at', { ascending: false })
     ]);
-    if (!rv.error && rv.data && rv.data.length > 0) {
-      vendas = rv.data;
-      save('vendas_app', vendas);
-    }
-    if (!rp.error && rp.data && rp.data.length > 0) {
-      produtos = rp.data;
-      save('produtos_app', produtos);
-    }
-    if (!rvd.error && rvd.data) {
-      vendedores = rvd.data;
-      save('vendedores_app', vendedores);
-    }
-    if (!rbn.error && rbn.data) {
-      baseNomes = rbn.data;
-      save('base_nomes_app', baseNomes);
-    }
-    if (!rem.error && rem.data) {
-      est_movimentos = rem.data;
-      estSalvarLocal();
-    }
+    if (!rv.error && rv.data) { vendas = rv.data; save('vendas_app', vendas); }
+    if (!rp.error && rp.data) { produtos = rp.data; save('produtos_app', produtos); }
+    if (!rvd.error && rvd.data) { vendedores = rvd.data; save('vendedores_app', vendedores); }
+    if (!rbn.error && rbn.data) { baseNomes = rbn.data; save('base_nomes_app', baseNomes); }
+    if (!rem.error && rem.data) { est_movimentos = rem.data; estSalvarLocal(); }
     renderDashboard();
     atualizarBadgeVendedor();
     renderSelectProdutosCadastro();
+    renderProdutos();
+    renderHistorico(histFiltro || 'hoje');
     if (statusEl) { statusEl.textContent = '✅ Nuvem'; statusEl.style.color='#16a34a'; }
-    // Mostra tela de login se não há vendedor ativo
-    if (!vendedorAtual) {
-      mostrarTelaLogin();
-    }
+    if (!silencioso) toast('✅ Dados atualizados da nuvem!');
+    return true;
   } catch(e) {
     if (statusEl) { statusEl.textContent = '📴 Offline'; statusEl.style.color='#dc2626'; }
-    if (!vendedorAtual) mostrarTelaLogin();
+    if (!silencioso) toast('❌ Sem conexão com a nuvem');
+    return false;
   }
+}
+
+async function inicializarDados() {
+  const ok = await sincronizarNuvem(true);
+  if (!vendedorAtual) mostrarTelaLogin();
 }
 
 // ---- UTILS ----
@@ -2000,7 +1994,8 @@ function finalizarVenda() {
       pgto, data, hora,
       pedido_id: pedidoId,
       vendedor: vendedorAtual ? vendedorAtual.nome : '',
-      estabelecimento: vendedorAtual ? (vendedorAtual.estabelecimento || '') : ''
+      estabelecimento: vendedorAtual ? (vendedorAtual.estabelecimento || '') : '',
+      created_at: Date.now()
     };
     vendas.push(venda);
     sbUpsert('vendas', venda);
