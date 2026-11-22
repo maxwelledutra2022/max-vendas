@@ -823,6 +823,20 @@
       <option value="BOX O">📦 Box O</option>
       <option value="LOJA">🏪 Loja</option>
     </select>
+
+    <label style="margin-top:12px;">📷 Foto do Produto <span style="font-size:0.75rem;color:var(--muted);">(opcional)</span></label>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+      <label for="p-foto-input" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;background:var(--card);border:1.5px dashed var(--border);border-radius:12px;cursor:pointer;font-size:.88rem;color:var(--primary);font-weight:700;flex:1;margin:0;">
+        📷 Tirar foto / Escolher
+        <input type="file" id="p-foto-input" accept="image/*" capture="environment" style="display:none;" onchange="previaFotoProduto(this)">
+      </label>
+      <div id="p-foto-preview" style="display:none;position:relative;">
+        <img id="p-foto-img" src="" alt="foto" style="width:72px;height:72px;object-fit:cover;border-radius:10px;border:2px solid var(--primary);display:block;">
+        <button onclick="limparFotoProduto()" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:.7rem;cursor:pointer;line-height:20px;text-align:center;padding:0;">✕</button>
+      </div>
+    </div>
+    <input type="hidden" id="p-foto-data" value="">
+
     <button class="btn btn-primary" onclick="adicionarProduto()">➕ Adicionar ao Catálogo</button>
   </div>
 
@@ -2317,6 +2331,38 @@ function calcPrecoDesconto() {
   }
 }
 
+function previaFotoProduto(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    // Redimensiona para economizar espaço
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const maxSide = 400;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > maxSide) { h = Math.round(h * maxSide / w); w = maxSide; } }
+      else { if (h > maxSide) { w = Math.round(w * maxSide / h); h = maxSide; } }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+      document.getElementById('p-foto-data').value = dataUrl;
+      document.getElementById('p-foto-img').src = dataUrl;
+      document.getElementById('p-foto-preview').style.display = 'block';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function limparFotoProduto() {
+  document.getElementById('p-foto-data').value = '';
+  document.getElementById('p-foto-img').src = '';
+  document.getElementById('p-foto-preview').style.display = 'none';
+  document.getElementById('p-foto-input').value = '';
+}
+
 function adicionarProduto() {
   const sel = document.getElementById('p-nome-select');
   const nome = sel ? sel.value : '';
@@ -2327,11 +2373,12 @@ function adicionarProduto() {
   const estoqueDestino = document.getElementById('p-estoque-destino').value || 'FÁBRICA';
   const categoria = document.getElementById('p-categoria').value;
   const tamanho = document.getElementById('p-tamanho').value;
+  const foto = document.getElementById('p-foto-data').value || '';
 
   if (!nome) { toast('⚠️ Selecione o produto'); return; }
   if (preco <= 0) { toast('⚠️ Informe o preço'); return; }
 
-  const novoProduto = { id: uid(), nome, preco, desconto, preco_final: precoFinal, estoque, categoria, tamanho };
+  const novoProduto = { id: uid(), nome, preco, desconto, preco_final: precoFinal, estoque, categoria, tamanho, foto };
   produtos.push(novoProduto);
   save('produtos_app', produtos);
   sbUpsert('produtos', novoProduto);
@@ -2365,6 +2412,7 @@ function adicionarProduto() {
   document.getElementById('p-preco-final-preview').style.color = 'var(--muted)';
   document.getElementById('p-preco-final-preview').style.fontWeight = 'normal';
   document.querySelectorAll('.tamanho-opt').forEach(b => b.classList.remove('ativo'));
+  limparFotoProduto();
 
   renderProdutos();
   const nomeLocal = {'FÁBRICA':'Fábrica','BOX A':'Box A','BOX V':'Box V','BOX O':'Box O','LOJA':'Loja'};
@@ -2460,7 +2508,8 @@ function renderProdutos() {
     return;
   }
   el.innerHTML = [...produtos].reverse().map(p => `
-    <div class="produto-item">
+    <div class="produto-item" style="align-items:flex-start;gap:10px;">
+      ${p.foto ? `<img src="${p.foto}" alt="foto" style="width:60px;height:60px;object-fit:cover;border-radius:10px;flex-shrink:0;border:1.5px solid var(--border);">` : `<div style="width:60px;height:60px;border-radius:10px;background:var(--bg);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;">📦</div>`}
       <div style="flex:1;min-width:0;">
         <div class="produto-nome">${esc(p.nome)}</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;align-items:center;">
