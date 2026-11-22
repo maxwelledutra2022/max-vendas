@@ -391,7 +391,7 @@
   <div>
     <div class="topbar h1" style="font-size:1.1rem;font-weight:700;">🛒 Controle de Vendas</div>
     <div class="date" id="topDate"></div>
-    <div id="sync-status">☁️ Sincronizando...</div>
+    <div id="sync-status" onclick="testarConexaoSupabase()" style="cursor:pointer;" title="Toque para testar conexão">☁️ Sincronizando...</div>
     <div id="vendedor-badge" onclick="mostrarTelaLogin()">👤 <span id="vendedor-nome-badge">Selecionar</span></div>
   </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
@@ -1532,7 +1532,13 @@ async function sincronizarNuvem(silencioso) {
       // Envia em lotes de 50 para não estourar limites
       for (let i = 0; i < corrigidas.length; i += 50) {
         const { error: errV } = await sb.from('vendas').upsert(corrigidas.slice(i, i + 50), { onConflict: 'id' });
-        if (errV) console.error('[Sync] Erro ao subir vendas:', errV.message, errV.details, errV.hint);
+        if (errV) {
+          const msg = `ERRO SYNC: ${errV.message}${errV.hint ? ' | '+errV.hint : ''}`;
+          console.error('[Sync] Erro ao subir vendas:', errV.message, errV.details, errV.hint);
+          if (statusEl) { statusEl.textContent = '❌ ' + errV.message.substring(0,40); statusEl.style.color='#dc2626'; statusEl.title = msg; }
+          // Mostra erro na tela para diagnóstico
+          mostrarErrSync(msg);
+        }
       }
     }
     // Sobe produtos locais (sem foto para evitar limite de tamanho)
@@ -1632,6 +1638,39 @@ function toast(msg) {
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2200);
+}
+function mostrarErrSync(msg) {
+  // Mostra erro de sync na tela de forma visível para diagnóstico
+  let el = document.getElementById('sync-err-banner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sync-err-banner';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:white;padding:10px 16px;font-size:0.8rem;z-index:9999;cursor:pointer;word-break:break-all;';
+    el.onclick = () => el.remove();
+    document.body.prepend(el);
+  }
+  el.textContent = '⚠️ ERRO SYNC (toque para fechar): ' + msg;
+}
+async function testarConexaoSupabase() {
+  mostrarErrSync('Testando conexão...');
+  const { data, error } = await sb.from('vendas').select('id').limit(1);
+  if (error) {
+    mostrarErrSync('LEITURA FALHOU: ' + error.message + (error.hint ? ' | ' + error.hint : ''));
+    return;
+  }
+  // Tenta inserir um registro de teste
+  const testeId = 'teste_' + Date.now();
+  const { error: errI } = await sb.from('vendas').upsert([{
+    id: testeId, nome: 'TESTE', qtd: 1, preco: 1, total: 1,
+    pgto: 'Dinheiro', data: '2026-01-01', hora: '00:00',
+    vendedor: 'TESTE', estabelecimento: 'LOJA', created_at: Date.now()
+  }], { onConflict: 'id' });
+  if (errI) {
+    mostrarErrSync('ESCRITA FALHOU: ' + errI.message + (errI.hint ? ' | ' + errI.hint : ''));
+  } else {
+    await sb.from('vendas').delete().eq('id', testeId);
+    mostrarErrSync('✅ Conexão OK — leitura e escrita funcionando');
+  }
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function parseValor(s) { return parseFloat(String(s).replace(',', '.')) || 0; }
