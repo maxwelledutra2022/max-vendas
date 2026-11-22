@@ -1512,20 +1512,34 @@ function limparExcluidos(tabela, ids) {
   localStorage.setItem(key, JSON.stringify(lista.filter(id => !ids.includes(id))));
 }
 
-function removerDeNuvemConfirmada(tabela, ids) {
-  const key = '__' + tabela + '_em_nuvem';
+// ── FILA DE PENDENTES ──────────────────────────────────────────────────────
+// Registra IDs que precisam ser enviados ao Supabase.
+// Itens entram na fila ao ser CRIADOS e saem ao ser confirmados pelo Supabase
+// ou ao ser DELETADOS localmente. O merge SÓ reenvia o que está nesta fila.
+function adicionarPendente(tabela, id) {
+  const key = '__pendentes_' + tabela;
+  const lista = JSON.parse(localStorage.getItem(key) || '[]');
+  if (!lista.includes(id)) { lista.push(id); localStorage.setItem(key, JSON.stringify(lista)); }
+}
+function removerPendente(tabela, ids) {
+  const key = '__pendentes_' + tabela;
   const lista = JSON.parse(localStorage.getItem(key) || '[]');
   localStorage.setItem(key, JSON.stringify(lista.filter(id => !ids.includes(id))));
 }
+function getPendentes(tabela) {
+  return new Set(JSON.parse(localStorage.getItem('__pendentes_' + tabela) || '[]'));
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 async function sbDelete(tabela, id) {
   registrarExclusao(tabela, [id]);
-  removerDeNuvemConfirmada(tabela, [id]);
+  removerPendente(tabela, [id]);   // cancela upload pendente — foi deletado antes de chegar à nuvem
   try { await sb.from(tabela).delete().eq('id', id); limparExcluidos(tabela, [id]); }
   catch(e) { console.warn('Offline:', e.message); }
 }
 async function sbDeleteMany(tabela, ids) {
   registrarExclusao(tabela, ids);
-  removerDeNuvemConfirmada(tabela, ids);
+  removerPendente(tabela, ids);    // cancela uploads pendentes
   try { await sb.from(tabela).delete().in('id', ids); limparExcluidos(tabela, ids); }
   catch(e) { console.warn('Offline:', e.message); }
 }
@@ -1541,8 +1555,8 @@ function save(k, v) {
 let vendas = load('vendas_app', []);
 let produtos = load('produtos_app', []);
 let vendedores = load('vendedores_app', []);
-let vendasCriadasNestaSessao = new Set();
-let produtosCriadosNestaSessao = new Set();
+// vendasCriadasNestaSessao e produtosCriadosNestaSessao foram substituídos
+// pela fila __pendentes_* (localStorage) — mais confiável entre reloads.
 let baseNomes = load('base_nomes_app', []); // base de nomes de produtos pré-cadastrados
 let vendedorAtual = load('vendedor_atual', null); // { id, nome, estabelecimento }
 let modoAdmin = false; // session-only, não persiste
@@ -1625,10 +1639,9 @@ async function sincronizarNuvem(silencioso) {
       sb.from('base_nomes').select('*').order('nome', { ascending: true }),
       sb.from('est_movimentos').select('*').order('created_at', { ascending: false })
     ]);
-    // Merge inteligente baseado em tempo:
-    // Itens locais só são reenviados se foram criados APÓS o último sync.
-    // Se sumiram da nuvem antes disso, foram deletados em outro dispositivo.
-    const ultimoSync = parseInt(localStorage.getItem('ultimo_sync_ts') || '0', 10);
+    // Merge via fila de pendentes: só reenvia itens explicitamente marcados como pendentes.
+    // Itens não pendentes e não na nuvem → foram deletados por outro dispositivo → não reenviar.
+    const ultimoSync = parseInt(localStorage.getItem('ultimo_sync_ts') || '0', 10); // usado para vendedores
     const tombV = new Set(getExcluidos('vendas'));
     const tombP = new Set(getExcluidos('produtos'));
 
@@ -1640,21 +1653,17 @@ async function sincronizarNuvem(silencioso) {
     if (!rv.error && rv.data) {
       const cloudVendas = rv.data.filter(v => !tombV.has(v.id));
       const cloudVIds = new Set(cloudVendas.map(v => v.id));
-      // IDs que já foram confirmados na nuvem em algum sync anterior
-      // Se um item estava na nuvem antes e agora não está → foi deletado por outro dispositivo
-      const jaNaNuvemV = new Set(load('__vendas_em_nuvem', []));
+      // ── FILA DE PENDENTES: só reenvia o que explicitamente ainda não chegou ao Supabase ──
+      // Itens entram na fila em finalizarVenda(). Saem ao ser confirmados ou deletados.
+      // Se um item NÃO está na fila e NÃO está na nuvem → foi deletado por outro dispositivo.
+      const pendenteV = getPendentes('vendas');
       const apenasLocal_v = vendas.filter(v => {
-        if (cloudVIds.has(v.id)) return false;      // já está na nuvem agora
-        if (tombV.has(v.id)) return false;           // excluído localmente
-        if (jaNaNuvemV.has(v.id)) return false;      // estava na nuvem antes → foi deletado externamente, não reenviar
-        if (vendasCriadasNestaSessao.has(v.id)) return true;  // criado offline nesta sessão
-        if (ultimoSync > 0 && tsItem(v) > ultimoSync) return true;  // criado após último sync
-        return false;
+        if (cloudVIds.has(v.id)) return false;  // já está na nuvem
+        if (tombV.has(v.id)) return false;       // excluído localmente
+        return pendenteV.has(v.id);             // SÓ reenvia se explicitamente pendente
       });
       vendas = [...cloudVendas, ...apenasLocal_v];
       save('vendas_app', vendas);
-      // Atualiza lista de IDs confirmados na nuvem
-      save('__vendas_em_nuvem', [...cloudVIds, ...apenasLocal_v.map(v => v.id)]);
       if (apenasLocal_v.length > 0) {
         const cols = sincronizarNuvem._colsVendas;
         const apenasLocal_v_fix = fixTs(apenasLocal_v).map(v => {
@@ -1664,33 +1673,34 @@ async function sincronizarNuvem(silencioso) {
           if (!obj.created_at) obj.created_at = new Date().toISOString();
           return obj;
         });
+        let mergeOk = true;
         for (let i = 0; i < apenasLocal_v_fix.length; i += 50) {
           const { error: er } = await sb.from('vendas').upsert(apenasLocal_v_fix.slice(i, i + 50), { onConflict: 'id' });
-          if (er) console.error('[Merge] Erro reenvio vendas:', er.message);
+          if (er) { console.error('[Merge] Erro reenvio vendas:', er.message); mergeOk = false; }
         }
+        // Remove da fila apenas os que chegaram ao Supabase com sucesso
+        if (mergeOk) removerPendente('vendas', apenasLocal_v.map(v => v.id));
       }
     }
     if (!rp.error && rp.data) {
       const cloudProdutos = rp.data.filter(p => !tombP.has(p.id));
       const cloudPIds = new Set(cloudProdutos.map(p => p.id));
-      const jaNaNuvemP = new Set(load('__produtos_em_nuvem', []));
+      const pendenteP = getPendentes('produtos');
       const apenasLocal_p = produtos.filter(p => {
         if (cloudPIds.has(p.id)) return false;
         if (tombP.has(p.id)) return false;
-        if (jaNaNuvemP.has(p.id)) return false;      // estava na nuvem antes → deletado externamente
-        if (produtosCriadosNestaSessao.has(p.id)) return true;
-        if (ultimoSync > 0 && tsItem(p) > ultimoSync) return true;
-        return false;
+        return pendenteP.has(p.id);             // SÓ reenvia se explicitamente pendente
       });
       produtos = [...cloudProdutos, ...apenasLocal_p];
       save('produtos_app', produtos);
-      save('__produtos_em_nuvem', [...cloudPIds, ...apenasLocal_p.map(p => p.id)]);
       if (apenasLocal_p.length > 0) {
         const semFoto = fixTs(apenasLocal_p.map(p => { const c = {...p}; delete c.foto; return c; }));
+        let mergeOkP = true;
         for (let i = 0; i < semFoto.length; i += 50) {
           const { error: er } = await sb.from('produtos').upsert(semFoto.slice(i, i + 50), { onConflict: 'id' });
-          if (er) console.error('[Merge] Erro reenvio produtos:', er.message);
+          if (er) { console.error('[Merge] Erro reenvio produtos:', er.message); mergeOkP = false; }
         }
+        if (mergeOkP) removerPendente('produtos', apenasLocal_p.map(p => p.id));
       }
     }
     if (!rvd.error && rvd.data) {
@@ -2214,13 +2224,16 @@ function finalizarVenda() {
       created_at: new Date().toISOString()
     };
     vendas.push(venda);
-    vendasCriadasNestaSessao.add(venda.id);
+    adicionarPendente('vendas', venda.id);  // entra na fila ANTES do upsert
     // Usa as colunas detectadas para evitar erro de schema
     const _cols = sincronizarNuvem._colsVendas;
     const vendaParaEnviar = _cols
       ? Object.fromEntries(Object.entries(venda).filter(([k]) => _cols.has(k)))
       : { id: venda.id, nome: venda.nome, qtd: venda.qtd, preco: venda.preco, total: venda.total, pgto: venda.pgto, data: venda.data, hora: venda.hora, created_at: venda.created_at };
-    sb.from('vendas').upsert(vendaParaEnviar, { onConflict: 'id' });
+    // Fire-and-forget: se chegar → sai da fila; se falhar → sync tentará de novo
+    sb.from('vendas').upsert(vendaParaEnviar, { onConflict: 'id' })
+      .then(({ error }) => { if (!error) removerPendente('vendas', [venda.id]); })
+      .catch(() => { /* fica na fila, sync reenvio */ });
 
     // Desconta estoque produto cadastrado
     if (item.prodId) {
@@ -2607,9 +2620,9 @@ function adicionarProduto() {
 
   const novoProduto = { id: uid(), nome, preco, desconto, preco_final: precoFinal, estoque, categoria, tamanho, foto };
   produtos.push(novoProduto);
-  produtosCriadosNestaSessao.add(novoProduto.id);
+  adicionarPendente('produtos', novoProduto.id);  // entra na fila antes do upsert
   save('produtos_app', produtos);
-  sbUpsert('produtos', novoProduto);
+  sbUpsert('produtos', novoProduto).then(ok => { if (ok) removerPendente('produtos', [novoProduto.id]); });
 
   // Cria entrada no estoque escolhido ao cadastrar produto
   {
