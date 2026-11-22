@@ -1676,25 +1676,33 @@ function mostrarErrSync(msg) {
   el.textContent = '⚠️ ERRO SYNC (toque para fechar): ' + msg;
 }
 async function testarConexaoSupabase() {
-  mostrarErrSync('Testando conexão...');
-  const { data, error } = await sb.from('vendas').select('id').limit(1);
-  if (error) {
-    mostrarErrSync('LEITURA FALHOU: ' + error.message + (error.hint ? ' | ' + error.hint : ''));
+  mostrarErrSync('⏳ Testando conexão...');
+  // Reseta cache de colunas para detectar novamente
+  sincronizarNuvem._colsVendas = null;
+  // Teste de leitura
+  const { data: dadosLeitura, error: errLeitura } = await sb.from('vendas').select('*').limit(1);
+  if (errLeitura) {
+    mostrarErrSync('❌ LEITURA FALHOU: ' + errLeitura.message + (errLeitura.hint ? ' | ' + errLeitura.hint : ''));
     return;
   }
-  // Tenta inserir um registro de teste
-  const testeId = 'teste_' + Date.now();
-  const { error: errI } = await sb.from('vendas').upsert([{
-    id: testeId, nome: 'TESTE', qtd: 1, preco: 1, total: 1,
-    pgto: 'Dinheiro', data: '2026-01-01', hora: '00:00',
-    vendedor: 'TESTE', estabelecimento: 'LOJA', created_at: Date.now()
-  }], { onConflict: 'id' });
-  if (errI) {
-    mostrarErrSync('ESCRITA FALHOU: ' + errI.message + (errI.hint ? ' | ' + errI.hint : ''));
-  } else {
-    await sb.from('vendas').delete().eq('id', testeId);
-    mostrarErrSync('✅ Conexão OK — leitura e escrita funcionando');
+  // Detecta colunas existentes
+  const colsExistentes = dadosLeitura && dadosLeitura.length > 0 ? Object.keys(dadosLeitura[0]) : ['id','nome','qtd','preco','total','pgto','data','hora','created_at'];
+  mostrarErrSync('⏳ Colunas detectadas: ' + colsExistentes.join(', ') + ' — testando escrita...');
+  // Teste de escrita com colunas detectadas
+  const testeId = '__teste__';
+  const registroTeste = {};
+  const camposBase = { id: testeId, nome:'TESTE', qtd:1, preco:1, total:1, pgto:'D', data:'2000-01-01', hora:'00:00', created_at: Date.now() };
+  colsExistentes.forEach(c => { if (camposBase[c] !== undefined) registroTeste[c] = camposBase[c]; });
+  const { error: errEscrita } = await sb.from('vendas').upsert([registroTeste], { onConflict: 'id' });
+  if (errEscrita) {
+    mostrarErrSync('❌ ESCRITA FALHOU: ' + errEscrita.message + (errEscrita.hint ? ' | ' + errEscrita.hint : ''));
+    return;
   }
+  await sb.from('vendas').delete().eq('id', testeId);
+  sincronizarNuvem._colsVendas = new Set(colsExistentes);
+  mostrarErrSync('✅ CONEXÃO OK! Colunas: ' + colsExistentes.join(', '));
+  // Força sync completo agora
+  setTimeout(() => sincronizarNuvem(false), 500);
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function parseValor(s) { return parseFloat(String(s).replace(',', '.')) || 0; }
