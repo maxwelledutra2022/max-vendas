@@ -3744,6 +3744,9 @@ function mudarCorteTab(panelId, btn) {
   document.querySelectorAll('.corte-tab').forEach(b => b.classList.remove('active'));
   document.getElementById(panelId).classList.add('active');
   btn.classList.add('active');
+  if (panelId === 'ct-costureiro') cfRenderCostureiro();
+  if (panelId === 'ct-estamparia') cfRenderEstamparia();
+  if (panelId === 'ct-cortes') cfRenderCortes();
 }
 
 // --- STATUS DO CORTE ---
@@ -4439,7 +4442,10 @@ function cfRenderGerenciarCostureiros() {
 }
 function cfAddCostureiroRapido() {
   const inp = document.getElementById('cos-novo-nome');
-  const v = inp.value.trim().toUpperCase(); if (!v) return;
+  if (!inp) { alert('Campo não encontrado. Recarregue a página.'); return; }
+  inp.focus();
+  const v = inp.value.trim().toUpperCase();
+  if (!v) { toast('⚠️ Digite o nome do costureiro antes de adicionar.'); return; }
   if (!cf_config.costureiros.find(c => (c.nome||c) === v)) {
     cf_config.costureiros.push({nome: v, tel: ''}); cfSalvar('cf_config', cf_config);
     toast('✅ Costureiro "' + v + '" adicionado!');
