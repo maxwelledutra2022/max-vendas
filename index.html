@@ -1643,17 +1643,27 @@ async function sincronizarNuvem(silencioso) {
       sb.from('base_nomes').select('*').order('nome', { ascending: true }),
       sb.from('est_movimentos').select('*').order('created_at', { ascending: false })
     ]);
-    // Merge inteligente: nunca apaga dados locais que ainda não subiram para a nuvem
+    // Merge inteligente baseado em tempo:
+    // Itens locais só são reenviados se foram criados APÓS o último sync.
+    // Se sumiram da nuvem antes disso, foram deletados em outro dispositivo.
+    const ultimoSync = parseInt(localStorage.getItem('ultimo_sync_ts') || '0', 10);
     const tombV = new Set(getExcluidos('vendas'));
     const tombP = new Set(getExcluidos('produtos'));
+
+    const tsItem = (o) => {
+      if (!o.created_at) return 0;
+      return typeof o.created_at === 'number' ? o.created_at : new Date(o.created_at).getTime();
+    };
+
     if (!rv.error && rv.data) {
-      // Filtra da nuvem os IDs que foram excluídos localmente
       const cloudVendas = rv.data.filter(v => !tombV.has(v.id));
       const cloudVIds = new Set(cloudVendas.map(v => v.id));
-      const apenasLocal_v = vendas.filter(v => !cloudVIds.has(v.id) && !tombV.has(v.id));
+      // Só reenviar se criado depois do último sync (novo neste dispositivo, ainda não na nuvem)
+      const apenasLocal_v = vendas.filter(v =>
+        !cloudVIds.has(v.id) && !tombV.has(v.id) && tsItem(v) > ultimoSync
+      );
       vendas = [...cloudVendas, ...apenasLocal_v];
       save('vendas_app', vendas);
-      // Reenvia os que ficaram só local
       if (apenasLocal_v.length > 0) {
         const apenasLocal_v_fix = fixTs(apenasLocal_v);
         for (let i = 0; i < apenasLocal_v_fix.length; i += 50) {
@@ -1665,10 +1675,11 @@ async function sincronizarNuvem(silencioso) {
     if (!rp.error && rp.data) {
       const cloudProdutos = rp.data.filter(p => !tombP.has(p.id));
       const cloudPIds = new Set(cloudProdutos.map(p => p.id));
-      const apenasLocal_p = produtos.filter(p => !cloudPIds.has(p.id) && !tombP.has(p.id));
+      const apenasLocal_p = produtos.filter(p =>
+        !cloudPIds.has(p.id) && !tombP.has(p.id) && tsItem(p) > ultimoSync
+      );
       produtos = [...cloudProdutos, ...apenasLocal_p];
       save('produtos_app', produtos);
-      // Reenvia produtos que ficaram só local (sem foto pois pode ser muito grande)
       if (apenasLocal_p.length > 0) {
         const semFoto = fixTs(apenasLocal_p.map(p => { const c = {...p}; delete c.foto; return c; }));
         for (let i = 0; i < semFoto.length; i += 50) {
@@ -1679,13 +1690,18 @@ async function sincronizarNuvem(silencioso) {
     }
     if (!rvd.error && rvd.data) {
       const cloudVdIds = new Set(rvd.data.map(v => v.id));
-      const apenasLocal_vd = vendedores.filter(v => !cloudVdIds.has(v.id));
+      const apenasLocal_vd = vendedores.filter(v =>
+        !cloudVdIds.has(v.id) && tsItem(v) > ultimoSync
+      );
       vendedores = [...rvd.data, ...apenasLocal_vd];
       save('vendedores_app', vendedores);
       if (apenasLocal_vd.length > 0) sb.from('vendedores').upsert(fixTs(apenasLocal_vd), { onConflict: 'id' });
     }
     if (!rbn.error && rbn.data) { baseNomes = rbn.data; save('base_nomes_app', baseNomes); }
     if (!rem.error && rem.data) { est_movimentos = rem.data; estSalvarLocal(); }
+
+    // Registra o momento desta sincronização bem-sucedida
+    localStorage.setItem('ultimo_sync_ts', Date.now().toString());
 
     renderDashboard();
     atualizarBadgeVendedor();
