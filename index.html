@@ -1522,6 +1522,26 @@ async function sincronizarNuvem(silencioso) {
   const statusEl = document.getElementById('sync-status');
   if (statusEl) { statusEl.textContent = '☁️ Sincronizando...'; statusEl.style.color='#bfdbfe'; }
   try {
+    // ── PASSO 1: subir dados locais para a nuvem ──────────────────
+    // Garante que vendas feitas offline ou presas no celular cheguem ao Supabase
+    const localVendas = load('vendas_app', []);
+    if (localVendas.length > 0) {
+      // Adiciona created_at em registros antigos que não tinham
+      const corrigidas = localVendas.map(v => ({ ...v, created_at: v.created_at || Date.now() }));
+      // Envia em lotes de 50 para não estourar limites
+      for (let i = 0; i < corrigidas.length; i += 50) {
+        await sb.from('vendas').upsert(corrigidas.slice(i, i + 50), { onConflict: 'id' });
+      }
+    }
+    // Sobe movimentos de estoque locais também
+    const localEst = JSON.parse(localStorage.getItem('est_movimentos') || '[]');
+    if (localEst.length > 0) {
+      for (let i = 0; i < localEst.length; i += 50) {
+        await sb.from('est_movimentos').upsert(localEst.slice(i, i + 50), { onConflict: 'id' });
+      }
+    }
+
+    // ── PASSO 2: baixar tudo da nuvem (fonte única da verdade) ────
     const [rv, rp, rvd, rbn, rem] = await Promise.all([
       sb.from('vendas').select('*').order('created_at', { ascending: true }),
       sb.from('produtos').select('*').order('created_at', { ascending: true }),
@@ -1534,13 +1554,16 @@ async function sincronizarNuvem(silencioso) {
     if (!rvd.error && rvd.data) { vendedores = rvd.data; save('vendedores_app', vendedores); }
     if (!rbn.error && rbn.data) { baseNomes = rbn.data; save('base_nomes_app', baseNomes); }
     if (!rem.error && rem.data) { est_movimentos = rem.data; estSalvarLocal(); }
+
     renderDashboard();
     atualizarBadgeVendedor();
     renderSelectProdutosCadastro();
     renderProdutos();
-    renderHistorico(histFiltro || 'hoje');
+    if (document.getElementById('screen-historico').classList.contains('active')) {
+      renderHistorico(histFiltro || 'hoje');
+    }
     if (statusEl) { statusEl.textContent = '✅ Nuvem'; statusEl.style.color='#16a34a'; }
-    if (!silencioso) toast('✅ Dados atualizados da nuvem!');
+    if (!silencioso) toast('✅ Dados atualizados!');
     return true;
   } catch(e) {
     if (statusEl) { statusEl.textContent = '📴 Offline'; statusEl.style.color='#dc2626'; }
