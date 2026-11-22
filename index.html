@@ -1527,17 +1527,34 @@ async function sincronizarNuvem(silencioso) {
     // Garante que vendas feitas offline ou presas no celular cheguem ao Supabase
     const localVendas = load('vendas_app', []);
     if (localVendas.length > 0) {
-      // Adiciona created_at em registros antigos que não tinham
-      const corrigidas = localVendas.map(v => ({ ...v, created_at: v.created_at || Date.now() }));
-      // Envia em lotes de 50 para não estourar limites
+      // Apenas colunas que existem na tabela do Supabase
+      const camposValidos = ['id','nome','qtd','preco','total','pgto','data','hora','pedido_id','vendedor','estabelecimento','created_at'];
+      const corrigidas = localVendas.map(v => {
+        const obj = { created_at: v.created_at || Date.now() };
+        camposValidos.forEach(c => { if (v[c] !== undefined) obj[c] = v[c]; });
+        return obj;
+      });
+      // Tenta com todos os campos primeiro
+      let errV;
       for (let i = 0; i < corrigidas.length; i += 50) {
-        const { error: errV } = await sb.from('vendas').upsert(corrigidas.slice(i, i + 50), { onConflict: 'id' });
-        if (errV) {
-          const msg = `ERRO SYNC: ${errV.message}${errV.hint ? ' | '+errV.hint : ''}`;
-          console.error('[Sync] Erro ao subir vendas:', errV.message, errV.details, errV.hint);
-          if (statusEl) { statusEl.textContent = '❌ ' + errV.message.substring(0,40); statusEl.style.color='#dc2626'; statusEl.title = msg; }
-          // Mostra erro na tela para diagnóstico
-          mostrarErrSync(msg);
+        const r = await sb.from('vendas').upsert(corrigidas.slice(i, i + 50), { onConflict: 'id' });
+        errV = r.error;
+        if (errV) break;
+      }
+      // Se falhou por coluna ausente, tenta só com campos mínimos
+      if (errV && errV.message && errV.message.includes('column')) {
+        console.warn('[Sync] Tentando com campos mínimos:', errV.message);
+        const minimos = corrigidas.map(v => ({
+          id: v.id, nome: v.nome, qtd: v.qtd, preco: v.preco,
+          total: v.total, pgto: v.pgto, data: v.data, hora: v.hora,
+          created_at: v.created_at
+        }));
+        for (let i = 0; i < minimos.length; i += 50) {
+          const r2 = await sb.from('vendas').upsert(minimos.slice(i, i + 50), { onConflict: 'id' });
+          if (r2.error) {
+            const msg = `ERRO SYNC: ${r2.error.message}`;
+            mostrarErrSync(msg);
+          }
         }
       }
     }
@@ -2100,7 +2117,16 @@ function finalizarVenda() {
       created_at: Date.now()
     };
     vendas.push(venda);
-    sbUpsert('vendas', venda);
+    // Tenta upsert completo; se falhar por coluna ausente, envia campos mínimos
+    sb.from('vendas').upsert(venda, { onConflict: 'id' }).then(r => {
+      if (r.error && r.error.message && r.error.message.includes('column')) {
+        sb.from('vendas').upsert({
+          id: venda.id, nome: venda.nome, qtd: venda.qtd, preco: venda.preco,
+          total: venda.total, pgto: venda.pgto, data: venda.data, hora: venda.hora,
+          created_at: venda.created_at
+        }, { onConflict: 'id' });
+      }
+    });
 
     // Desconta estoque produto cadastrado
     if (item.prodId) {
