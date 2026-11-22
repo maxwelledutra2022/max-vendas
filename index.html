@@ -3907,11 +3907,6 @@ function cfSalvarEst() {
   cfFechar('cf-modal-est');
   cfRenderEstamparia();
   cfRenderCortes();
-  // WhatsApp após salvar (apenas novo registro, não edição)
-  if (!cfEditandoEstId) {
-    const corte = cf_cortes.find(c => c.id === corte_id);
-    cfEnviarWhatsappEst(est_nome, corte, entrega, data);
-  }
   cfEditandoEstId = null;
 }
 function cfRenderEstamparia() {
