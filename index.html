@@ -2039,7 +2039,6 @@ function filtrarHist(filtro, el) {
 
 function renderHistorico(filtro) {
   const agora = new Date();
-  // Admin vê tudo; vendedor vê só as suas
   const vendasBase = modoAdmin
     ? vendas
     : (vendedorAtual ? vendas.filter(v => v.vendedor === vendedorAtual.nome) : vendas);
@@ -2048,35 +2047,91 @@ function renderHistorico(filtro) {
     if (filtro === 'hoje') return v.data === today();
     if (filtro === 'semana') {
       const d = new Date(v.data + 'T12:00:00');
-      const diff = (agora - d) / 86400000;
-      return diff <= 7;
+      return (agora - d) / 86400000 <= 7;
     }
     return true;
   });
   lista = [...lista].reverse();
 
-  const total = lista.reduce((s, v) => s + v.total, 0);
-  document.getElementById('hist-total').textContent = fmt(total);
-  document.getElementById('hist-count').textContent = lista.length;
+  const totalValor = lista.reduce((s, v) => s + v.total, 0);
+  document.getElementById('hist-total').textContent = fmt(totalValor);
+
+  // Agrupa por pedido_id
+  const pedidos = [];
+  const pedidoMap = {};
+  lista.forEach(v => {
+    const pid = v.pedido_id || v.id; // sem pedido_id = pedido único
+    if (!pedidoMap[pid]) {
+      pedidoMap[pid] = { pid, itens: [], total: 0, data: v.data, hora: v.hora, pgto: v.pgto, vendedor: v.vendedor, estabelecimento: v.estabelecimento };
+      pedidos.push(pedidoMap[pid]);
+    }
+    pedidoMap[pid].itens.push(v);
+    pedidoMap[pid].total += v.total;
+  });
+
+  document.getElementById('hist-count').textContent = pedidos.length;
 
   const el = document.getElementById('hist-lista');
-  if (!lista.length) {
+  if (!pedidos.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>Sem vendas no período.</p></div>';
     return;
   }
-  el.innerHTML = lista.map(v => `
-    <div class="venda-item">
-      <div style="flex:1;min-width:0;">
-        <div class="venda-nome">${esc(v.nome)}</div>
-        <div class="venda-meta">${v.qtd}x ${fmt(v.preco)} · ${v.pgto} · ${v.data.slice(5).replace('-','/')} ${v.hora}${v.vendedor ? ' · 👤 ' + esc(v.vendedor) : ''}${v.estabelecimento ? ' · 🏪 ' + esc(v.estabelecimento) : ''}</div>
+
+  el.innerHTML = pedidos.map(p => {
+    const multiItem = p.itens.length > 1;
+    const itensList = p.itens.map(v => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;${multiItem?'border-bottom:1px solid var(--border);':''}" >
+        <div>
+          <span style="font-weight:600;font-size:.88rem;">${esc(v.nome)}</span>
+          <span style="font-size:.78rem;color:var(--muted);margin-left:6px;">${v.qtd}x ${fmt(v.preco)}</span>
+        </div>
+        <span style="font-size:.88rem;font-weight:700;color:var(--success);white-space:nowrap;">${fmt(v.total)}</span>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <div class="venda-valor">${fmt(v.total)}</div>
-        <button onclick="imprimirRecibo(${JSON.stringify(v).replace(/"/g,'&quot;')})" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:6px 9px;font-size:.85rem;cursor:pointer;" title="Imprimir recibo">🖨️</button>
-        <button class="venda-delete" onclick="deletarVenda('${v.id}')">✕</button>
+    `).join('');
+
+    const ids = p.itens.map(v => v.id);
+    const idsJson = JSON.stringify(ids).replace(/"/g,'&quot;');
+    const pedJson = JSON.stringify(p).replace(/"/g,'&quot;');
+
+    return `
+    <div class="venda-item" style="flex-direction:column;align-items:stretch;gap:4px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-size:.78rem;color:var(--muted);">
+            ${p.data.slice(5).replace('-','/')} ${p.hora||''}
+            ${p.vendedor ? ' · 👤 ' + esc(p.vendedor) : ''}
+            ${p.estabelecimento ? ' · 🏪 ' + esc(p.estabelecimento) : ''}
+          </div>
+          <div style="font-size:.78rem;color:var(--muted);">💳 ${p.pgto}${multiItem ? ' · ' + p.itens.length + ' itens' : ''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:8px;">
+          <span class="venda-valor" style="font-size:1rem;">${fmt(p.total)}</span>
+          <button onclick="imprimirReciboPedido(${pedJson})" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:6px 9px;font-size:.85rem;cursor:pointer;" title="Imprimir">🖨️</button>
+          <button class="venda-delete" onclick="deletarPedido(${idsJson})">✕</button>
+        </div>
       </div>
-    </div>
-  `).join('');
+      <div style="${multiItem?'':'display:none;'}padding-top:4px;">${itensList}</div>
+      ${!multiItem ? `<div style="font-size:.88rem;font-weight:600;">${esc(p.itens[0].nome)} · ${p.itens[0].qtd}x ${fmt(p.itens[0].preco)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function deletarPedido(ids) {
+  if (!confirm('Excluir esta venda?')) return;
+  ids.forEach(id => {
+    const saidaVinc = est_movimentos.filter(m => m.venda_id === id);
+    if (saidaVinc.length) {
+      est_movimentos = est_movimentos.filter(m => m.venda_id !== id);
+      saidaVinc.forEach(m => estExcluirNuvem(m.id));
+    }
+    sbDelete('vendas', id);
+  });
+  estSalvarLocal();
+  vendas = vendas.filter(v => !ids.includes(v.id));
+  save('vendas_app', vendas);
+  renderHistorico(histFiltro);
+  updateTop();
+  toast('🗑️ Venda removida');
 }
 
 function imprimirRecibo(v) {
@@ -2114,6 +2169,59 @@ function imprimirRecibo(v) {
 <div class="center obrigado">Obrigado pela compra!<br>Volte sempre 😊</div>
 </body></html>`;
   // Usa iframe oculto para evitar bloqueio de popup
+  let iframe = document.getElementById('recibo-print-frame');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'recibo-print-frame';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:80mm;height:200mm;border:none;';
+    document.body.appendChild(iframe);
+  }
+  iframe.contentDocument.open();
+  iframe.contentDocument.write(html);
+  iframe.contentDocument.close();
+  setTimeout(() => {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+  }, 500);
+}
+
+function imprimirReciboPedido(p) {
+  const logo = document.querySelector('#recibo-print-frame')?.contentDocument?.querySelector('.logo')?.src || '';
+  const logoBase = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQ8AAAC7CAYAAAB7AxvpAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAAC5qSURBVHhe7d15eBRF/sfxd3XPmTsGQgADAUIIlyAQwAVhBTlF5IwgCIqiIorisbCreLAeuP7E9Vp1RRQkiwjIIWw4BEVQjkgEueQKEkIIxyUnt6pOv3+mgTTRuJlmZqdn5vd5nn7SKb1TSiX5Zu+qrqpWSqkdAADA1lJWAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`;
+  const itensList = p.itens.map(v =>
+    `<div class="produto">${v.nome}</div><div>Qtd: ${v.qtd} x R$ ${(v.preco||0).toFixed(2).replace('.',',')} = R$ ${(v.total||0).toFixed(2).replace('.',',')}</div>`
+  ).join('<div class="linha"></div>');
+  const html = `<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>Recibo</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Courier New', monospace; font-size: 12px; width: 80mm; padding: 4mm; color:#000; }
+  .center { text-align:center; }
+  .logo { display:block; margin:0 auto 6px; width:40mm; }
+  .linha { border-top:1px dashed #000; margin:5px 0; }
+  .linha-solida { border-top:1px solid #000; margin:5px 0; }
+  .produto { font-size:13px; font-weight:bold; margin:3px 0; }
+  .total { font-size:15px; font-weight:bold; text-align:right; margin:4px 0; }
+  .obrigado { font-size:11px; margin-top:6px; }
+  @media print { body { margin:0; } }
+</style>
+</head><body>
+<div class="center">
+  <div style="font-weight:bold;font-size:16px;margin-bottom:4px;">Max Fashion</div>
+  <div class="linha-solida"></div>
+  <div style="font-size:10px;">Data: ${p.data?.split('-').reverse().join('/')} ${p.hora || ''}</div>
+  <div style="font-size:10px;">Vendedor: ${p.vendedor || '-'} · Local: ${p.estabelecimento || '-'}</div>
+  <div class="linha"></div>
+</div>
+${itensList}
+<div class="linha"></div>
+<div class="total">TOTAL: R$ ${(p.total||0).toFixed(2).replace('.',',')}</div>
+<div>Pagamento: ${p.pgto || '-'}</div>
+<div class="linha-solida"></div>
+<div class="center obrigado">Obrigado pela compra!<br>Volte sempre 😊</div>
+</body></html>`;
   let iframe = document.getElementById('recibo-print-frame');
   if (!iframe) {
     iframe = document.createElement('iframe');
