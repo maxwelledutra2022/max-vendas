@@ -1534,7 +1534,7 @@ async function sincronizarNuvem(silencioso) {
         const idTeste = '__col_test__';
         await sb.from('vendas').delete().eq('id', idTeste);
         const camposBase = ['id','nome','qtd','preco','total','pgto','data','hora','created_at'];
-        const registroTeste = { id: idTeste, nome:'T', qtd:1, preco:1, total:1, pgto:'D', data:'2000-01-01', hora:'00:00', created_at: Date.now() };
+        const registroTeste = { id: idTeste, nome:'T', qtd:1, preco:1, total:1, pgto:'D', data:'2000-01-01', hora:'00:00', created_at: new Date().toISOString() };
         // Testa com campos extras um a um para descobrir quais existem
         const extras = ['vendedor','estabelecimento','pedido_id'];
         const colsOk = [...camposBase];
@@ -1553,7 +1553,9 @@ async function sincronizarNuvem(silencioso) {
     const localVendas = load('vendas_app', []);
     if (localVendas.length > 0) {
       const corrigidas = localVendas.map(v => {
-        const obj = { created_at: v.created_at || Date.now() };
+        // Converte created_at para ISO string (Supabase exige timestamp, não ms)
+        const ts = v.created_at || Date.now();
+        const obj = { created_at: typeof ts === 'number' ? new Date(ts).toISOString() : ts };
         cols.forEach(c => { if (v[c] !== undefined) obj[c] = v[c]; });
         return obj;
       });
@@ -1691,7 +1693,7 @@ async function testarConexaoSupabase() {
   // Teste de escrita com colunas detectadas
   const testeId = '__teste__';
   const registroTeste = {};
-  const camposBase = { id: testeId, nome:'TESTE', qtd:1, preco:1, total:1, pgto:'D', data:'2000-01-01', hora:'00:00', created_at: Date.now() };
+  const camposBase = { id: testeId, nome:'TESTE', qtd:1, preco:1, total:1, pgto:'D', data:'2000-01-01', hora:'00:00', created_at: new Date().toISOString() };
   colsExistentes.forEach(c => { if (camposBase[c] !== undefined) registroTeste[c] = camposBase[c]; });
   const { error: errEscrita } = await sb.from('vendas').upsert([registroTeste], { onConflict: 'id' });
   if (errEscrita) {
@@ -2129,7 +2131,7 @@ function finalizarVenda() {
       pedido_id: pedidoId,
       vendedor: vendedorAtual ? vendedorAtual.nome : '',
       estabelecimento: vendedorAtual ? (vendedorAtual.estabelecimento || '') : '',
-      created_at: Date.now()
+      created_at: new Date().toISOString()
     };
     vendas.push(venda);
     // Usa as colunas detectadas para evitar erro de schema
@@ -2157,7 +2159,7 @@ function finalizarVenda() {
         tipo: 'saida', data, produto: venda.nome, qtd: venda.qtd,
         destino: localVenda,
         obs: 'Venda automática — ' + (venda.vendedor || 'sem vendedor'),
-        venda_id: venda.id, created_at: Date.now()
+        venda_id: venda.id, created_at: new Date().toISOString()
       };
       est_movimentos.unshift(saida);
       estSyncNuvem(saida);
@@ -2538,7 +2540,7 @@ function adicionarProduto() {
       qtd: estoque,
       destino: estoqueDestino,
       obs: 'Entrada automática — cadastro do produto',
-      created_at: Date.now()
+      created_at: new Date().toISOString()
     };
     est_movimentos.unshift(entradaAuto);
     estSalvarLocal();
@@ -3648,7 +3650,7 @@ function cfSalvarCorte() {
     const idx = cf_cortes.findIndex(x => x.id === cfEditandoCorteId);
     cf_cortes[idx] = { ...cf_cortes[idx], numero, data_corte: data, descricao: desc, quantidade: qtd, obs };
   } else {
-    cf_cortes.push({ id: cfId(), numero, data_corte: data, descricao: desc, quantidade: qtd, obs, created_at: Date.now() });
+    cf_cortes.push({ id: cfId(), numero, data_corte: data, descricao: desc, quantidade: qtd, obs, created_at: new Date().toISOString() });
   }
   cfSalvar('cf_cortes', cf_cortes);
   cfFechar('cf-modal-corte');
@@ -3713,7 +3715,7 @@ function cfSalvarEst() {
     const idx = cf_estamparia.findIndex(x => x.id === cfEditandoEstId);
     cf_estamparia[idx] = { ...cf_estamparia[idx], ...reg };
   } else {
-    cf_estamparia.push({ id: cfId(), ...reg, created_at: Date.now() });
+    cf_estamparia.push({ id: cfId(), ...reg, created_at: new Date().toISOString() });
   }
   cfSalvar('cf_estamparia', cf_estamparia);
   cfFechar('cf-modal-est');
@@ -3838,7 +3840,7 @@ function cfSalvarCos() {
     const idx = cf_costureiro.findIndex(x => x.id === cfEditandoCosId);
     cf_costureiro[idx] = { ...cf_costureiro[idx], ...reg };
   } else {
-    cf_costureiro.push({ id: cfId(), ...reg, created_at: Date.now() });
+    cf_costureiro.push({ id: cfId(), ...reg, created_at: new Date().toISOString() });
   }
   cfSalvar('cf_costureiro', cf_costureiro);
   cfFechar('cf-modal-cos');
@@ -3987,7 +3989,7 @@ function cfSalvarDesp() {
   const desc  = document.getElementById('cf-d-descricao').value.trim();
   const resp  = document.getElementById('cf-d-responsavel').value.trim();
   if (!desc || !valor) { alert('Preencha descrição e valor.'); return; }
-  cf_despesas.push({ id: cfId(), data, descricao: desc, valor, responsavel: resp, created_at: Date.now() });
+  cf_despesas.push({ id: cfId(), data, descricao: desc, valor, responsavel: resp, created_at: new Date().toISOString() });
   cfSalvar('cf_despesas', cf_despesas);
   cfFechar('cf-modal-desp');
   cfRenderFinanceiro();
@@ -4329,7 +4331,7 @@ function fcSalvar() {
 
   if (!data) { alert('Informe a data do fechamento.'); return; }
 
-  const reg = { data, estabelecimento: estab, troco_inicial: trocoIni, troco_final: trocoFin, pix, cartao, sangria, total, created_at: Date.now() };
+  const reg = { data, estabelecimento: estab, troco_inicial: trocoIni, troco_final: trocoFin, pix, cartao, sangria, total, created_at: new Date().toISOString() };
 
   if (fcEditandoId) {
     const idx = fc_fechamentos.findIndex(f => f.id === fcEditandoId);
@@ -4862,7 +4864,7 @@ function estConfirmarDistribuicao() {
     qtd,
     destino: dest,
     obs: obs || 'Distribuição Fábrica → ' + dest,
-    created_at: Date.now()
+    created_at: new Date().toISOString()
   };
   est_movimentos.unshift(mov);
   estSalvarLocal();
@@ -4917,7 +4919,7 @@ function estSalvarEntrada() {
   const qtd     = parseInt(document.getElementById('est-ent-qtd').value) || 0;
   const obs     = document.getElementById('est-ent-obs').value.trim();
   if (!data || !produto || qtd <= 0) { alert('Preencha data, produto e quantidade.'); return; }
-  const novoMov = { id: 'em_' + Date.now(), tipo: 'entrada', data, produto, qtd, obs, created_at: Date.now() };
+  const novoMov = { id: 'em_' + Date.now(), tipo: 'entrada', data, produto, qtd, obs, created_at: new Date().toISOString() };
   est_movimentos.unshift(novoMov);
   estSalvarLocal();
   estSyncNuvem(novoMov);
@@ -4936,7 +4938,7 @@ function estSalvarTransferencia() {
   if (!data || !produto || !destino || qtd <= 0) { alert('Preencha todos os campos.'); return; }
   const saldo = estSaldoFabrica(produto);
   if (qtd > saldo) { alert(`Saldo insuficiente na Fábrica!\nDisponível: ${saldo} un.`); return; }
-  const novoTrf = { id: 'em_' + Date.now(), tipo: 'transferencia', data, produto, destino, qtd, obs, created_at: Date.now() };
+  const novoTrf = { id: 'em_' + Date.now(), tipo: 'transferencia', data, produto, destino, qtd, obs, created_at: new Date().toISOString() };
   est_movimentos.unshift(novoTrf);
   estSalvarLocal();
   estSyncNuvem(novoTrf);
