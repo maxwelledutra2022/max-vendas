@@ -1489,8 +1489,9 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 async function sbUpsert(tabela, dados) {
   try {
     const { error } = await sb.from(tabela).upsert(dados, { onConflict: 'id' });
-    if (error) console.warn('Supabase:', error.message);
-  } catch(e) { console.warn('Offline:', e.message); }
+    if (error) console.error(`[Supabase] Erro upsert ${tabela}:`, error.message, error.details, error.hint);
+    return !error;
+  } catch(e) { console.error('[Supabase] Offline:', e.message); return false; }
 }
 async function sbDelete(tabela, id) {
   try { await sb.from(tabela).delete().eq('id', id); }
@@ -1530,7 +1531,8 @@ async function sincronizarNuvem(silencioso) {
       const corrigidas = localVendas.map(v => ({ ...v, created_at: v.created_at || Date.now() }));
       // Envia em lotes de 50 para não estourar limites
       for (let i = 0; i < corrigidas.length; i += 50) {
-        await sb.from('vendas').upsert(corrigidas.slice(i, i + 50), { onConflict: 'id' });
+        const { error: errV } = await sb.from('vendas').upsert(corrigidas.slice(i, i + 50), { onConflict: 'id' });
+        if (errV) console.error('[Sync] Erro ao subir vendas:', errV.message, errV.details, errV.hint);
       }
     }
     // Sobe movimentos de estoque locais também
@@ -2057,6 +2059,11 @@ function finalizarVenda() {
   renderCarrinho();
   updateTop();
   toast(`✅ Venda de ${fmt(totalGeral)} finalizada! (${nItens} item${nItens>1?'ns':''})`);
+
+  // Força sincronização imediata após cada venda para garantir que outros dispositivos vejam
+  sincronizarNuvem(true).then(ok => {
+    if (!ok) toast('⚠️ Venda salva localmente (sem internet). Sincronize quando conectar.');
+  });
 }
 
 // alias para compatibilidade (caso chamado em outro lugar)
