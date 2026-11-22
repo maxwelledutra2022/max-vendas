@@ -604,13 +604,10 @@
 
 <!-- ===== HISTÓRICO ===== -->
 <div class="screen" id="screen-historico">
-  <div class="filter-row" style="justify-content:space-between;align-items:center;">
-    <div style="display:flex;gap:6px;">
-      <span class="filter-chip active" onclick="filtrarHist('hoje',this)">Hoje</span>
-      <span class="filter-chip" onclick="filtrarHist('semana',this)">Semana</span>
-      <span class="filter-chip" onclick="filtrarHist('tudo',this)">Tudo</span>
-    </div>
-    <button onclick="sincronizarNuvem(false).then(()=>renderHistorico(histFiltro||'hoje'))" style="background:#1d4ed8;color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:.78rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;" id="btn-sincronizar">🔄 Sincronizar</button>
+  <div class="filter-row">
+    <span class="filter-chip active" onclick="filtrarHist('hoje',this)">Hoje</span>
+    <span class="filter-chip" onclick="filtrarHist('semana',this)">Semana</span>
+    <span class="filter-chip" onclick="filtrarHist('tudo',this)">Tudo</span>
   </div>
 
   <div class="card" style="margin-bottom:8px;" id="hist-resumo">
@@ -5264,7 +5261,52 @@ function onlInicializar() {
 // ---- INIT ----
 renderDashboard();
 atualizarBadgeVendedor();
-inicializarDados(); // carrega da nuvem
+inicializarDados().then(() => {
+  // ── SYNC AUTOMÁTICO ──────────────────────────────────────────────
+
+  // 1) Supabase Realtime — atualização instantânea em tempo real
+  try {
+    sb.channel('vendas-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vendas' }, payload => {
+        const nova = payload.new;
+        if (nova && !vendas.find(v => v.id === nova.id)) {
+          vendas.push(nova);
+          save('vendas_app', vendas);
+          if (document.getElementById('screen-historico').classList.contains('active')) {
+            renderHistorico(histFiltro || 'hoje');
+          }
+          renderDashboard();
+        }
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'vendas' }, payload => {
+        const id = payload.old?.id;
+        if (id) {
+          vendas = vendas.filter(v => v.id !== id);
+          save('vendas_app', vendas);
+          if (document.getElementById('screen-historico').classList.contains('active')) {
+            renderHistorico(histFiltro || 'hoje');
+          }
+          renderDashboard();
+        }
+      })
+      .subscribe(status => {
+        const el = document.getElementById('sync-status');
+        if (el && status === 'SUBSCRIBED') {
+          el.textContent = '🟢 Tempo real';
+          el.style.color = '#86efac';
+        }
+      });
+  } catch(e) { console.warn('Realtime não disponível:', e); }
+
+  // 2) Polling a cada 60s — fallback quando Realtime não conecta
+  setInterval(() => sincronizarNuvem(true), 60000);
+
+  // 3) Ao voltar ao app (sair do plano de fundo no celular)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') sincronizarNuvem(true);
+  });
+  window.addEventListener('focus', () => sincronizarNuvem(true));
+});
 </script>
 </body>
 </html>
