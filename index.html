@@ -1262,6 +1262,9 @@ ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
 
     <!-- ABA PAINEL -->
     <div id="est-aba-painel">
+      <!-- Entrada rápida: produtos do catálogo sem saldo na Fábrica -->
+      <div id="est-sem-saldo" style="display:none;margin-bottom:14px;"></div>
+
       <div style="font-weight:800;font-size:.95rem;margin-bottom:10px;">Saldo por Local</div>
       <div id="est-painel-saldos" style="display:flex;flex-direction:column;gap:10px;"></div>
       <div style="font-weight:800;font-size:.95rem;margin:16px 0 10px;">📋 Movimentações Recentes</div>
@@ -2706,7 +2709,8 @@ function adicionarProduto() {
   sbUpsert('produtos', novoProduto).then(ok => { if (ok) removerPendente('produtos', [novoProduto.id]); });
 
   // Cria entrada no estoque escolhido ao cadastrar produto
-  {
+  // Entrada automática na Fábrica somente se qtd > 0
+  if (estoque > 0) {
     const hoje = new Date().toISOString().slice(0, 10);
     const entradaAuto = {
       id: 'em_' + Date.now(),
@@ -5206,9 +5210,51 @@ function estSalvarTransferencia() {
   estAba('painel');
 }
 
+function estEntradaRapida(nomeProd) {
+  const qtd = parseInt(prompt('Quantas unidades de "' + nomeProd + '" entram na Fábrica?') || '0');
+  if (!qtd || qtd <= 0) return;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const mov = {
+    id: 'em_' + Date.now(),
+    tipo: 'entrada',
+    data: hoje,
+    produto: nomeProd,
+    qtd,
+    destino: 'FÁBRICA',
+    obs: 'Entrada rápida — produto do catálogo',
+    created_at: new Date().toISOString()
+  };
+  est_movimentos.unshift(mov);
+  estSalvarLocal();
+  estSyncNuvem(mov);
+  toast('✅ ' + qtd + ' un. de "' + nomeProd + '" registradas na Fábrica!');
+  estRenderPainel();
+}
+
 function estRenderPainel() {
   const saldos = estSaldos();
   const fmt = v => v + ' un.';
+
+  // Produtos do catálogo sem saldo na Fábrica
+  const semSaldoEl = document.getElementById('est-sem-saldo');
+  if (semSaldoEl && produtos && produtos.length) {
+    const saldoFab = saldos['FÁBRICA'] || {};
+    const semSaldo = produtos.filter(p => !saldoFab[p.nome] || saldoFab[p.nome] <= 0);
+    if (semSaldo.length) {
+      semSaldoEl.style.display = 'block';
+      semSaldoEl.innerHTML = `
+        <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:12px 14px;">
+          <div style="font-weight:800;color:#9a3412;font-size:.85rem;margin-bottom:8px;">📥 Produtos aguardando entrada na Fábrica (${semSaldo.length})</div>
+          ${semSaldo.map(p => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fed7aa;">
+              <span style="font-size:.83rem;font-weight:700;">${p.nome}</span>
+              <button onclick="estEntradaRapida('${p.nome.replace(/'/g,"\\'")}') " style="border:none;background:#ea580c;color:#fff;border-radius:8px;padding:5px 12px;font-size:.78rem;font-weight:800;cursor:pointer;">📥 Registrar Entrada</button>
+            </div>`).join('')}
+        </div>`;
+    } else {
+      semSaldoEl.style.display = 'none';
+    }
+  }
 
   // Painel de saldos
   const pEl = document.getElementById('est-painel-saldos');
