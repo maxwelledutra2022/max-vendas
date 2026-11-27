@@ -5251,12 +5251,16 @@ function estRenderPainel() {
       semSaldoEl.style.display = 'block';
       semSaldoEl.innerHTML = `
         <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:12px 14px;">
-          <div style="font-weight:800;color:#9a3412;font-size:.85rem;margin-bottom:8px;">📥 Produtos aguardando entrada na Fábrica (${semSaldo.length})</div>
+          <div style="font-weight:800;color:#9a3412;font-size:.85rem;margin-bottom:10px;">📥 Entrada na Fábrica — ${semSaldo.length} produto${semSaldo.length>1?'s':''} sem saldo</div>
+          <div style="font-size:.75rem;color:#9a3412;margin-bottom:10px;">Preencha as quantidades e confirme de uma vez:</div>
           ${semSaldo.map(p => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fed7aa;">
-              <span style="font-size:.83rem;font-weight:700;">${p.nome}</span>
-              <button onclick="estEntradaRapida('${p.nome.replace(/'/g,"\\'")}') " style="border:none;background:#ea580c;color:#fff;border-radius:8px;padding:5px 12px;font-size:.78rem;font-weight:800;cursor:pointer;">📥 Registrar Entrada</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #fed7aa;gap:10px;">
+              <span style="font-size:.83rem;font-weight:700;flex:1;">${p.nome}</span>
+              <input type="number" min="0" placeholder="Qtd" data-produto="${p.nome.replace(/"/g,'&quot;')}"
+                class="est-entrada-rapida-qtd"
+                style="width:72px;padding:6px 8px;border:1.5px solid #fed7aa;border-radius:8px;font-size:.85rem;font-weight:700;text-align:center;background:#fff;">
             </div>`).join('')}
+          <button onclick="estConfirmarEntradasRapidas()" style="margin-top:12px;width:100%;padding:10px;background:#ea580c;color:#fff;border:none;border-radius:9px;font-weight:800;font-size:.88rem;cursor:pointer;">✅ Confirmar Entradas na Fábrica</button>
         </div>`;
     } else {
       semSaldoEl.style.display = 'none';
