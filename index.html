@@ -1754,7 +1754,19 @@ async function sincronizarNuvem(silencioso) {
       if (apenasLocal_vd.length > 0) sb.from('vendedores').upsert(fixTs(apenasLocal_vd), { onConflict: 'id' });
     }
     if (!rbn.error && rbn.data) { baseNomes = rbn.data; save('base_nomes_app', baseNomes); }
-    if (!rem.error && rem.data) { est_movimentos = rem.data; estSalvarLocal(); }
+    if (!rem.error && rem.data) {
+      // Merge: mantém entradas locais que ainda não chegaram ao Supabase
+      const cloudEstIds = new Set(rem.data.map(m => m.id));
+      const apenasLocal_est = est_movimentos.filter(m => !cloudEstIds.has(m.id));
+      est_movimentos = [...rem.data, ...apenasLocal_est];
+      estSalvarLocal();
+      // Sobe os que estavam só local (não chegaram ao Supabase ainda)
+      if (apenasLocal_est.length > 0) {
+        for (let i = 0; i < apenasLocal_est.length; i += 50) {
+          sb.from('est_movimentos').upsert(apenasLocal_est.slice(i, i + 50), { onConflict: 'id' });
+        }
+      }
+    }
 
     // Registra o momento desta sincronização bem-sucedida
     localStorage.setItem('ultimo_sync_ts', Date.now().toString());
