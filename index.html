@@ -5989,6 +5989,33 @@ inicializarDados().then(() => {
       });
   } catch(e) { console.warn('Realtime não disponível:', e); }
 
+  // 1b) Supabase Realtime para movimentos de estoque — atualiza painel e catálogo instantaneamente
+  try {
+    sb.channel('estoque-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'est_movimentos' }, payload => {
+        const novo = payload.new;
+        // Só processa se o movimento ainda não está no cache local
+        if (novo && !est_movimentos.find(m => m.id === novo.id)) {
+          est_movimentos.unshift(novo);
+          estSalvarLocal();
+          // Atualiza painel de estoque se estiver aberto
+          const screenEst = document.getElementById('screen-estoque');
+          if (screenEst && screenEst.classList.contains('active')) {
+            // Detecta qual sub-aba está visível para não trocar de tela
+            const abaAtiva = ['painel','distribuir','transferir'].find(a => {
+              const el = document.getElementById('est-aba-' + a);
+              return el && el.style.display !== 'none';
+            }) || 'painel';
+            estAba(abaAtiva);
+          }
+          // Atualiza catálogo e dashboard sempre (refletem saldo real)
+          renderDashboard();
+          renderProdutos();
+        }
+      })
+      .subscribe();
+  } catch(e) { console.warn('Realtime estoque não disponível:', e); }
+
   // 2) Polling a cada 60s — fallback quando Realtime não conecta
   setInterval(() => sincronizarNuvem(true), 60000);
 
