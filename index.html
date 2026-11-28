@@ -1913,17 +1913,7 @@ function goScreen(name, btn) {
   document.getElementById('screen-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
   if (name === 'dashboard') renderDashboard();
-  if (name === 'historico') {
-    if (!modoAdmin) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById('screen-dashboard').classList.add('active');
-      document.querySelector('.nav-btn').classList.add('active');
-      cfPedirAdminParaTela('historico', '📋 Histórico de Vendas');
-      return;
-    }
-    histFiltro = 'hoje'; renderHistorico('hoje');
-  }
+  if (name === 'historico') { histFiltro = 'hoje'; renderHistorico('hoje'); }
   if (name === 'produtos') {
     if (!modoAdmin) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -2108,9 +2098,9 @@ function sairAdmin() {
   atualizarBadgeVendedor();
   updateTop();
   renderDashboard();
-  // Se estiver na tela de histórico, volta ao dashboard (histórico é só admin)
+  // Se estiver na tela de histórico, re-renderiza mostrando só as vendas do vendedor logado
   if (document.getElementById('screen-historico').classList.contains('active')) {
-    goScreen('dashboard', document.querySelector('.nav-btn'));
+    renderHistorico(histFiltro);
   }
   toast('🔒 Saiu do modo admin');
 }
