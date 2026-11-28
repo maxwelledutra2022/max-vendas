@@ -1342,6 +1342,49 @@ ALTER TABLE despesas_fab DISABLE ROW LEVEL SECURITY;</pre>
         </div>
         <button onclick="estSalvarTransferencia()" class="btn btn-primary" style="width:100%;">🚚 Confirmar Transferência</button>
       </div>
+
+      <!-- AJUSTE DE ESTOQUE: Saída/Correção manual -->
+      <div class="card" style="margin-top:14px;border:1.5px solid #fca5a5;">
+        <div style="font-weight:800;margin-bottom:4px;font-size:.95rem;color:#991b1b;">✂️ Ajuste de Estoque (Saída Manual)</div>
+        <div style="font-size:.75rem;color:#9a3412;margin-bottom:12px;">Use para corrigir o saldo quando uma venda não zerou o estoque automaticamente.</div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Data</label>
+          <input type="date" id="est-sai-data" style="width:100%;padding:9px 10px;border:1.5px solid #fca5a5;border-radius:10px;font-size:.88rem;">
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Local (de onde sai)</label>
+          <select id="est-sai-local" style="width:100%;padding:9px 10px;border:1.5px solid #fca5a5;border-radius:10px;font-size:.88rem;">
+            <option value="">Selecionar local...</option>
+            <option value="LOJA">🏪 Loja</option>
+            <option value="BOX A">📦 Box A</option>
+            <option value="BOX V">📦 Box V</option>
+            <option value="BOX O">📦 Box O</option>
+            <option value="FÁBRICA">🏭 Fábrica</option>
+          </select>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Produto</label>
+          <select id="est-sai-produto" style="width:100%;padding:9px 10px;border:1.5px solid #fca5a5;border-radius:10px;font-size:.88rem;">
+            <option value="">Selecionar produto...</option>
+          </select>
+        </div>
+        <div style="margin-bottom:6px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Quantidade</label>
+          <input type="number" id="est-sai-qtd" min="1" placeholder="0" style="width:100%;padding:9px 10px;border:1.5px solid #fca5a5;border-radius:10px;font-size:.88rem;">
+        </div>
+        <div id="est-sai-saldo-info" style="font-size:.78rem;color:#9a3412;margin-bottom:10px;"></div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:.78rem;font-weight:700;display:block;margin-bottom:4px;">Motivo (opcional)</label>
+          <input type="text" id="est-sai-obs" placeholder="Ex: Venda não registrada automaticamente..." style="width:100%;padding:9px 10px;border:1.5px solid #fca5a5;border-radius:10px;font-size:.88rem;">
+        </div>
+        <button onclick="estSalvarSaidaManual()" style="width:100%;padding:11px;background:#dc2626;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:.9rem;cursor:pointer;">✂️ Confirmar Saída Manual</button>
+      </div>
+
+      <!-- HISTÓRICO DE MOVIMENTAÇÕES -->
+      <div class="card" style="margin-top:14px;">
+        <div style="font-weight:800;margin-bottom:12px;font-size:.95rem;">📋 Histórico de Movimentações</div>
+        <div id="est-hist-lista" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;"></div>
+      </div>
     </div>
 
   </div>
@@ -5054,6 +5097,59 @@ function estPopularProdutos() {
   const prods = produtos || [];
   const opts = '<option value="">Selecionar produto...</option>' + prods.map(p => `<option value="${p.nome}">${p.nome}</option>`).join('');
   const st = document.getElementById('est-trf-produto'); if (st) st.innerHTML = opts;
+  const ss = document.getElementById('est-sai-produto'); if (ss) ss.innerHTML = opts;
+  // Data padrão para saída manual
+  const hoje = new Date().toISOString().slice(0,10);
+  const ds = document.getElementById('est-sai-data'); if (ds && !ds.value) ds.value = hoje;
+  // Listener para mostrar saldo atual ao selecionar produto/local na saída manual
+  ['est-sai-local','est-sai-produto','est-sai-qtd'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el._saiListener) {
+      el._saiListener = true;
+      el.addEventListener('change', estVerificarSaldoSaida);
+      el.addEventListener('input', estVerificarSaldoSaida);
+    }
+  });
+}
+
+function estVerificarSaldoSaida() {
+  const local   = document.getElementById('est-sai-local')?.value;
+  const produto = document.getElementById('est-sai-produto')?.value;
+  const qtd     = parseInt(document.getElementById('est-sai-qtd')?.value) || 0;
+  const info    = document.getElementById('est-sai-saldo-info');
+  if (!info) return;
+  if (!local || !produto) { info.textContent = ''; return; }
+  const saldos = estSaldos();
+  const saldo  = (saldos[local] && saldos[local][produto]) || 0;
+  const cor    = qtd > saldo ? '#ef4444' : '#16a34a';
+  info.innerHTML = `Saldo em ${local}: <b style="color:${cor};">${saldo} un.</b>${qtd > saldo ? ' ⚠️ Vai negativar!' : ''}`;
+}
+
+function estRenderHistorico() {
+  const lista = document.getElementById('est-hist-lista');
+  if (!lista) return;
+  const movs = (est_movimentos || []).slice(0, 60);
+  if (!movs.length) { lista.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:16px;">Nenhuma movimentação registrada.</div>'; return; }
+  const tipoIcon = { entrada: '📥', transferencia: '🔄', saida: '✂️' };
+  const tipoLabel = { entrada: 'Entrada', transferencia: 'Transferência', saida: 'Saída' };
+  const tipoColor = { entrada: '#16a34a', transferencia: '#2563eb', saida: '#dc2626' };
+  lista.innerHTML = movs.map(m => {
+    const icon = tipoIcon[m.tipo] || '•';
+    const label = tipoLabel[m.tipo] || m.tipo;
+    const cor = tipoColor[m.tipo] || 'var(--text)';
+    const obs = m.obs ? `<div style="font-size:.72rem;color:var(--muted);margin-top:2px;">${m.obs}</div>` : '';
+    return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);gap:8px;">
+      <div style="flex:1;">
+        <div style="font-size:.82rem;font-weight:700;">${icon} ${m.produto}</div>
+        <div style="font-size:.73rem;color:${cor};font-weight:600;">${label} · ${m.destino || 'FÁBRICA'}</div>
+        ${obs}
+      </div>
+      <div style="text-align:right;white-space:nowrap;">
+        <div style="font-size:.88rem;font-weight:800;color:${cor};">${m.tipo === 'saida' ? '−' : '+'}${m.qtd}</div>
+        <div style="font-size:.7rem;color:var(--muted);">${m.data || ''}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function estAba(aba) {
@@ -5068,7 +5164,7 @@ function estAba(aba) {
   });
   if (aba === 'painel') estRenderPainel();
   if (aba === 'distribuir') { estDistInit(); }
-  if (aba === 'transferir') { estPopularProdutos(); estVerificarSaldo(); }
+  if (aba === 'transferir') { estPopularProdutos(); estVerificarSaldo(); estRenderHistorico(); }
 }
 
 let _estDistDest = '';
@@ -5199,6 +5295,39 @@ function estSalvarEntrada() {
   document.getElementById('est-ent-qtd').value = '';
   document.getElementById('est-ent-obs').value = '';
   toast('✅ Entrada registrada! +' + qtd + ' ' + produto);
+  estAba('painel');
+}
+
+function estSalvarSaidaManual() {
+  const data    = document.getElementById('est-sai-data').value;
+  const local   = document.getElementById('est-sai-local').value;
+  const produto = document.getElementById('est-sai-produto').value;
+  const qtd     = parseInt(document.getElementById('est-sai-qtd').value) || 0;
+  const obs     = document.getElementById('est-sai-obs').value.trim() || 'Ajuste manual de estoque';
+  if (!data || !local || !produto || qtd <= 0) { toast('⚠️ Preencha data, local, produto e quantidade.'); return; }
+  const saldos = estSaldos();
+  const saldoAtual = (saldos[local] && saldos[local][produto]) || 0;
+  if (qtd > saldoAtual) {
+    const continuar = confirm(`Atenção: saldo atual de ${produto} em ${local} é ${saldoAtual} un.\nDeseja registrar saída de ${qtd} un. mesmo assim?`);
+    if (!continuar) return;
+  }
+  const novoMov = {
+    id: 'em_' + Date.now() + '_adj',
+    tipo: 'saida',
+    data,
+    produto,
+    qtd,
+    destino: local,
+    obs,
+    created_at: new Date().toISOString()
+  };
+  est_movimentos.unshift(novoMov);
+  estSalvarLocal();
+  estSyncNuvem(novoMov);
+  document.getElementById('est-sai-qtd').value = '';
+  document.getElementById('est-sai-obs').value = '';
+  document.getElementById('est-sai-saldo-info').textContent = '';
+  toast('✅ Saída de ' + qtd + ' ' + produto + ' registrada em ' + local);
   estAba('painel');
 }
 
