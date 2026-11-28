@@ -2368,9 +2368,13 @@ function finalizarVenda() {
     const localVenda = venda.estabelecimento;
     const EST_LOCAIS_VENDA = ['LOJA','BOX A','BOX V','BOX O'];
     if (localVenda && EST_LOCAIS_VENDA.includes(localVenda)) {
+      // Usa o nome do catálogo (p.nome), não o nome de exibição (p.nome + tamanho)
+      const prodNomeEstoque = item.prodId
+        ? (produtos.find(p => p.id === item.prodId)?.nome || venda.nome)
+        : venda.nome;
       const saida = {
         id: 'em_' + Date.now() + '_s' + idx,
-        tipo: 'saida', data, produto: venda.nome, qtd: venda.qtd,
+        tipo: 'saida', data, produto: prodNomeEstoque, qtd: venda.qtd,
         destino: localVenda,
         obs: 'Venda automática — ' + (venda.vendedor || 'sem vendedor'),
         venda_id: venda.id, created_at: new Date().toISOString()
