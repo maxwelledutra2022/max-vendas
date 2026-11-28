@@ -1913,7 +1913,17 @@ function goScreen(name, btn) {
   document.getElementById('screen-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
   if (name === 'dashboard') renderDashboard();
-  if (name === 'historico') { histFiltro = 'hoje'; renderHistorico('hoje'); }
+  if (name === 'historico') {
+    if (!modoAdmin) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('screen-dashboard').classList.add('active');
+      document.querySelector('.nav-btn').classList.add('active');
+      cfPedirAdminParaTela('historico', '📋 Histórico de Vendas');
+      return;
+    }
+    histFiltro = 'hoje'; renderHistorico('hoje');
+  }
   if (name === 'produtos') {
     if (!modoAdmin) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -1973,7 +1983,16 @@ function updateTop() {
     dias[d.getDay()] + ', ' + d.toLocaleDateString('pt-BR');
 
   const totalHoje = vendas.filter(v => v.data === today()).reduce((s, v) => s + v.total, 0);
-  document.getElementById('topTotal').textContent = fmt(totalHoje);
+  const topTotalEl = document.getElementById('topTotal');
+  if (topTotalEl) {
+    if (modoAdmin) {
+      topTotalEl.textContent = fmt(totalHoje);
+      topTotalEl.style.display = '';
+    } else {
+      topTotalEl.textContent = '';
+      topTotalEl.style.display = 'none';
+    }
+  }
 }
 
 // ---- DASHBOARD ----
@@ -2021,6 +2040,8 @@ function cfConfirmarAdminDestino() {
     if (destino === 'produtos') { renderProdutos(); renderBaseNomes(); renderSelectProdutosCadastro(); cfAtualizarAlertaProdutos(); }
     if (destino === 'caixa') { fcInit(); }
     if (destino === 'estoque') { estInit(); }
+    if (destino === 'historico') { histFiltro = 'hoje'; renderHistorico('hoje'); }
+    updateTop();
     toast('✅ Acesso liberado');
   } else {
     inp.style.border = '1.5px solid var(--danger)';
@@ -2085,9 +2106,11 @@ function sairAdmin() {
   document.getElementById('admin-btn').classList.remove('ativo');
   document.getElementById('admin-btn').textContent = '🔒 Admin';
   atualizarBadgeVendedor();
+  updateTop();
   renderDashboard();
+  // Se estiver na tela de histórico, volta ao dashboard (histórico é só admin)
   if (document.getElementById('screen-historico').classList.contains('active')) {
-    renderHistorico(histFiltro);
+    goScreen('dashboard', document.querySelector('.nav-btn'));
   }
   toast('🔒 Saiu do modo admin');
 }
