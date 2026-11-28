@@ -2476,7 +2476,7 @@ function renderHistorico(filtro) {
   const pedidos = [];
   const pedidoMap = {};
   lista.forEach(v => {
-    const pid = v.pedido_id || v.id; // sem pedido_id = pedido único
+    const pid = v.pedido_id || v.id;
     if (!pedidoMap[pid]) {
       pedidoMap[pid] = { pid, itens: [], total: 0, data: v.data, hora: v.hora, pgto: v.pgto, vendedor: v.vendedor, estabelecimento: v.estabelecimento };
       pedidos.push(pedidoMap[pid]);
@@ -2493,7 +2493,8 @@ function renderHistorico(filtro) {
     return;
   }
 
-  el.innerHTML = pedidos.map(p => {
+  // Renderiza um pedido individual
+  function renderPedido(p) {
     const multiItem = p.itens.length > 1;
     const itensList = p.itens.map(v => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;${multiItem?'border-bottom:1px solid var(--border);':''}" >
@@ -2504,11 +2505,9 @@ function renderHistorico(filtro) {
         <span style="font-size:.88rem;font-weight:700;color:var(--success);white-space:nowrap;">${fmt(v.total)}</span>
       </div>
     `).join('');
-
     const ids = p.itens.map(v => v.id);
     const idsJson = JSON.stringify(ids).replace(/"/g,'&quot;');
     const pedJson = JSON.stringify(p).replace(/"/g,'&quot;');
-
     return `
     <div class="venda-item" style="flex-direction:column;align-items:stretch;gap:4px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -2516,7 +2515,6 @@ function renderHistorico(filtro) {
           <div style="font-size:.78rem;color:var(--muted);">
             ${p.data.slice(5).replace('-','/')} ${p.hora||''}
             ${p.vendedor ? ' · 👤 ' + esc(p.vendedor) : ''}
-            ${p.estabelecimento ? ' · 🏪 ' + esc(p.estabelecimento) : ''}
           </div>
           <div style="font-size:.78rem;color:var(--muted);">💳 ${p.pgto}${multiItem ? ' · ' + p.itens.length + ' itens' : ''}</div>
         </div>
@@ -2529,7 +2527,72 @@ function renderHistorico(filtro) {
       <div style="${multiItem?'':'display:none;'}padding-top:4px;">${itensList}</div>
       ${!multiItem ? `<div style="font-size:.88rem;font-weight:600;">${esc(p.itens[0].nome)} · ${p.itens[0].qtd}x ${fmt(p.itens[0].preco)}</div>` : ''}
     </div>`;
-  }).join('');
+  }
+
+  // No modo admin: agrupa por estabelecimento
+  if (modoAdmin) {
+    const LOCAIS_ORDEM = ['LOJA', 'BOX A', 'BOX V', 'BOX O'];
+    const localIcone = { 'LOJA': '🏪', 'BOX A': '📦', 'BOX V': '📦', 'BOX O': '📦' };
+
+    // Separa por estabelecimento
+    const grupos = {};
+    pedidos.forEach(p => {
+      const local = (p.estabelecimento || '').trim().toUpperCase() || 'OUTROS';
+      if (!grupos[local]) grupos[local] = [];
+      grupos[local].push(p);
+    });
+
+    // Ordem: locais conhecidos primeiro, depois outros
+    const ordemFinal = [...LOCAIS_ORDEM, ...Object.keys(grupos).filter(k => !LOCAIS_ORDEM.includes(k))];
+
+    let html = '';
+    let totalGeral = 0;
+    let countGeral = 0;
+
+    ordemFinal.forEach(local => {
+      if (!grupos[local] || grupos[local].length === 0) return;
+      const pGrupo = grupos[local];
+      const totalLocal = pGrupo.reduce((s, p) => s + p.total, 0);
+      totalGeral += totalLocal;
+      countGeral += pGrupo.length;
+
+      const icone = localIcone[local] || '📍';
+      html += `
+        <div style="margin-bottom:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;
+                      background:var(--primary);color:#fff;padding:10px 14px;
+                      border-radius:12px 12px 0 0;font-weight:800;font-size:.92rem;">
+            <span>${icone} ${local}</span>
+            <span style="font-size:.8rem;opacity:.85;">${pGrupo.length} venda${pGrupo.length>1?'s':''}</span>
+          </div>
+          <div style="border:1.5px solid var(--primary);border-top:none;border-radius:0 0 12px 12px;overflow:hidden;">
+            <div style="padding:0 10px;">
+              ${pGrupo.map(renderPedido).join('')}
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        background:#f0f9ff;padding:10px 14px;border-top:1.5px solid var(--border);
+                        font-weight:800;font-size:.9rem;">
+              <span style="color:var(--muted);">Total ${local}</span>
+              <span style="color:var(--success);font-size:1.05rem;">${fmt(totalLocal)}</span>
+            </div>
+          </div>
+        </div>`;
+    });
+
+    // Total geral ao final
+    html += `
+      <div style="display:flex;justify-content:space-between;align-items:center;
+                  background:#1e293b;color:#fff;padding:12px 16px;border-radius:12px;
+                  margin-top:4px;font-weight:900;font-size:1rem;">
+        <span>💰 TOTAL GERAL</span>
+        <span style="font-size:1.15rem;">${fmt(totalGeral)}</span>
+      </div>`;
+
+    el.innerHTML = html;
+  } else {
+    // Modo vendedor: lista simples (igual ao anterior)
+    el.innerHTML = pedidos.map(renderPedido).join('');
+  }
 }
 
 function deletarPedido(ids) {
